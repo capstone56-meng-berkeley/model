@@ -1,0 +1,199 @@
+"""Feature extractor using multiple CNN backbones."""
+
+import os
+from dataclasses import dataclass, field
+from typing import List, Tuple, Optional
+
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms as T
+from tqdm import tqdm
+
+from .base import BaseBackbone
+from .backbones import BackboneRegistry, get_backbone
+
+
+@dataclass
+class ExtractionConfig:
+    """Configuration for feature extraction."""
+    backbones: List[str] = field(default_factory=lambda: ["resnet50", "vgg16"])
+    img_size: int = 224
+    batch_size: int = 16
+    num_workers: int = 2
+    pooling: str = "avg"
+
+
+class ImageDataset(Dataset):
+    """Dataset for loading images from file paths."""
+
+    def __init__(
+        self,
+        image_paths: List[str],
+        transform=None
+    ):
+        self.image_paths = image_paths
+        self.transform = transform
+
+    def __len__(self) -> int:
+        return len(self.image_paths)
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, str]:
+        img_path = self.image_paths[idx]
+        filename = os.path.basename(img_path)
+
+        img = Image.open(img_path).convert("RGB")
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, filename
+
+
+class FeatureExtractor:
+    """
+    Extensible multi-backbone feature extractor.
+
+    Uses registry pattern to support any registered backbone.
+    Concatenates features from multiple backbones.
+    """
+
+    def __init__(self, config: ExtractionConfig):
+        """
+        Initialize the feature extractor.
+
+        Args:
+            config: Extraction configuration
+        """
+        self.config = config
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Initialize backbones from registry
+        self.backbones: List[BaseBackbone] = []
+        print(f"Initializing feature extractor on {self.device}...")
+
+        for name in config.backbones:
+            backbone = get_backbone(name, pretrained=True)
+            backbone = backbone.to(self.device).eval()
+            self.backbones.append(backbone)
+            print(f"  Loaded {name}: {backbone.feature_dim} features")
+
+        # Total feature dimension
+        self.feature_dim = sum(b.feature_dim for b in self.backbones)
+        print(f"  Total feature dimension: {self.feature_dim}")
+
+        # Image transforms (ImageNet normalization)
+        self.transform = T.Compose([
+            T.Resize((config.img_size, config.img_size)),
+            T.ToTensor(),
+            T.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            ),
+        ])
+
+    @torch.no_grad()
+    def extract_features(
+        self,
+        image_paths: List[str]
+    ) -> Tuple[np.ndarray, List[str]]:
+        """
+        Extract features from images using all backbones.
+
+        Args:
+            image_paths: List of image file paths
+
+        Returns:
+            Tuple of (features array, filenames list)
+        """
+        dataset = ImageDataset(image_paths, transform=self.transform)
+        dataloader = DataLoader(
+            dataset,
+            batch_size=self.config.batch_size,
+            shuffle=False,
+            num_workers=self.config.num_workers,
+            pin_memory=True
+        )
+
+        all_features = []
+        all_filenames = []
+
+        for imgs, filenames in tqdm(dataloader, desc="Extracting features"):
+            imgs = imgs.to(self.device, non_blocking=True)
+
+            # Extract from each backbone
+            batch_features = []
+            for backbone in self.backbones:
+                features = backbone(imgs)
+                batch_features.append(features.cpu().numpy())
+
+            # Concatenate backbone features
+            combined = np.concatenate(batch_features, axis=1)
+            all_features.append(combined)
+            all_filenames.extend(list(filenames))
+
+        # Stack all batches
+        X = np.vstack(all_features)
+
+        return X, all_filenames
+
+    def get_feature_names(self) -> List[str]:
+        """Get feature names for each dimension."""
+        names = []
+        for backbone in self.backbones:
+            backbone_name = type(backbone).__name__.replace("Backbone", "").lower()
+            for i in range(backbone.feature_dim):
+                names.append(f"{backbone_name}_{i}")
+        return names
+
+    @classmethod
+    def list_available_backbones(cls) -> List[str]:
+        """List all available backbone names."""
+        return BackboneRegistry.list_available()
+
+
+def extract_image_features(
+    image_paths: List[str],
+    backbones: List[str] = None,
+    img_size: int = 224,
+    batch_size: int = 16,
+    cache_path: Optional[str] = None
+) -> Tuple[np.ndarray, List[str]]:
+    """
+    Convenience function to extract image features.
+
+    Args:
+        image_paths: List of image file paths
+        backbones: List of backbone names (default: resnet50, vgg16)
+        img_size: Image size for processing
+        batch_size: Batch size for extraction
+        cache_path: Optional path to cache features
+
+    Returns:
+        Tuple of (features array, filenames list)
+    """
+    # Check cache
+    if cache_path and os.path.exists(cache_path):
+        print(f"Loading cached features from {cache_path}")
+        data = np.load(cache_path, allow_pickle=True)
+        return data['X'], list(data['filenames'])
+
+    # Create config
+    config = ExtractionConfig(
+        backbones=backbones or ["resnet50", "vgg16"],
+        img_size=img_size,
+        batch_size=batch_size
+    )
+
+    # Extract
+    extractor = FeatureExtractor(config)
+    X, filenames = extractor.extract_features(image_paths)
+
+    # Cache if path provided
+    if cache_path:
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        np.savez(cache_path, X=X, filenames=filenames)
+        print(f"Cached features to {cache_path}")
+
+    return X, filenames
