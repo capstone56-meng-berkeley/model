@@ -1,0 +1,48 @@
+# Proto documentation - design docs before implementation
+proto-doc/
+
+# Environment and credentials
+.env
+credentials.json
+token.json
+
+# Data directories
+data/temp_images/
+data/images/
+data/*.npz
+data/*.csv
+
+# Model outputs
+models/*.joblib
+models/*.png
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
