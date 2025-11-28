@@ -1,0 +1,29 @@
+{
+  "data_source": "drive",
+  "local": {
+    "images_dir": "data/images",
+    "labels_csv": "data/labels.csv"
+  },
+  "temp_dir": "data/temp_images",
+  "feature_cache": "data/feature_cache.npz",
+  "model_dir": "models",
+  "random_seed": 42,
+  "img_size": 224,
+  "batch_size": 16,
+  "num_workers": 2,
+
+  "google_drive": {
+    "row_id_column": "A",
+    "image_columns": ["D", "E", "F"],
+    "column_types": {
+      "D": "image",
+      "E": "image",
+      "F": "folder"
+    }
+  },
+
+  "features": {
+    "feature_columns": [],
+    "label_columns": []
+  }
+}
