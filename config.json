@@ -24,6 +24,31 @@
 
   "features": {
     "feature_columns": [],
-    "label_columns": []
+    "label_columns": [],
+    "column_types": {},
+    "preprocessing": {
+      "missing_data": {
+        "column_drop_threshold": 0.95,
+        "row_fill_threshold": 0.10,
+        "numeric_fill_strategy": "mean",
+        "categorical_fill_strategy": "mode",
+        "mid_range_strategy": "fill"
+      },
+      "scaling": {
+        "method": "standard",
+        "enabled": true
+      },
+      "encoding": {
+        "categorical": "onehot",
+        "text": "tfidf",
+        "unique_string": "label",
+        "max_categories": 50
+      }
+    }
+  },
+
+  "extraction": {
+    "backbones": ["resnet50", "vgg16"],
+    "pooling": "avg"
   }
 }
