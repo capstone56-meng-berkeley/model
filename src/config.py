@@ -28,10 +28,53 @@ class GoogleDriveConfig:
 
 
 @dataclass
+class MissingDataConfig:
+    """Configuration for missing data handling."""
+    column_drop_threshold: float = 0.95  # Drop column if >95% missing
+    row_fill_threshold: float = 0.10     # Fill if <10% missing
+    numeric_fill_strategy: str = "mean"  # mean, median, zero
+    categorical_fill_strategy: str = "mode"  # mode, unknown
+    mid_range_strategy: str = "fill"  # drop_rows, fill, flag
+
+
+@dataclass
+class ScalingConfig:
+    """Configuration for feature scaling."""
+    method: str = "standard"  # standard, minmax, robust, none
+    enabled: bool = True
+
+
+@dataclass
+class EncodingConfig:
+    """Configuration for feature encoding."""
+    categorical: str = "onehot"  # onehot, label
+    text: str = "tfidf"  # tfidf, skip
+    unique_string: str = "label"  # label, skip
+    max_categories: int = 50
+
+
+@dataclass
+class PreprocessingConfig:
+    """Configuration for tabular data preprocessing."""
+    missing_data: MissingDataConfig = field(default_factory=MissingDataConfig)
+    scaling: ScalingConfig = field(default_factory=ScalingConfig)
+    encoding: EncodingConfig = field(default_factory=EncodingConfig)
+
+
+@dataclass
 class FeaturesConfig:
     """Configuration for feature and label columns."""
     feature_columns: List[str] = field(default_factory=list)
     label_columns: List[str] = field(default_factory=list)
+    column_types: Dict[str, str] = field(default_factory=dict)
+    preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
+
+
+@dataclass
+class ExtractionConfig:
+    """Configuration for image feature extraction."""
+    backbones: List[str] = field(default_factory=lambda: ["resnet50", "vgg16"])
+    pooling: str = "avg"
 
 
 @dataclass
@@ -61,8 +104,11 @@ class Config:
     # Google Drive config
     google_drive: GoogleDriveConfig = field(default_factory=GoogleDriveConfig)
 
-    # Features config
+    # Features config (tabular)
     features: FeaturesConfig = field(default_factory=FeaturesConfig)
+
+    # Image feature extraction config
+    extraction: ExtractionConfig = field(default_factory=ExtractionConfig)
 
     # Environment variables (loaded from .env)
     sheet_id: Optional[str] = None
@@ -122,10 +168,53 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
         column_types=drive_data.get("column_types", {"D": "image", "E": "image", "F": "folder"})
     )
 
+    # Parse features config with preprocessing
     features_data = config_data.get("features", {})
+
+    # Parse preprocessing config
+    preproc_data = features_data.get("preprocessing", {})
+
+    missing_data = preproc_data.get("missing_data", {})
+    missing_config = MissingDataConfig(
+        column_drop_threshold=missing_data.get("column_drop_threshold", 0.95),
+        row_fill_threshold=missing_data.get("row_fill_threshold", 0.10),
+        numeric_fill_strategy=missing_data.get("numeric_fill_strategy", "mean"),
+        categorical_fill_strategy=missing_data.get("categorical_fill_strategy", "mode"),
+        mid_range_strategy=missing_data.get("mid_range_strategy", "fill")
+    )
+
+    scaling_data = preproc_data.get("scaling", {})
+    scaling_config = ScalingConfig(
+        method=scaling_data.get("method", "standard"),
+        enabled=scaling_data.get("enabled", True)
+    )
+
+    encoding_data = preproc_data.get("encoding", {})
+    encoding_config = EncodingConfig(
+        categorical=encoding_data.get("categorical", "onehot"),
+        text=encoding_data.get("text", "tfidf"),
+        unique_string=encoding_data.get("unique_string", "label"),
+        max_categories=encoding_data.get("max_categories", 50)
+    )
+
+    preproc_config = PreprocessingConfig(
+        missing_data=missing_config,
+        scaling=scaling_config,
+        encoding=encoding_config
+    )
+
     features_config = FeaturesConfig(
         feature_columns=features_data.get("feature_columns", []),
-        label_columns=features_data.get("label_columns", [])
+        label_columns=features_data.get("label_columns", []),
+        column_types=features_data.get("column_types", {}),
+        preprocessing=preproc_config
+    )
+
+    # Parse extraction config
+    extraction_data = config_data.get("extraction", {})
+    extraction_config = ExtractionConfig(
+        backbones=extraction_data.get("backbones", ["resnet50", "vgg16"]),
+        pooling=extraction_data.get("pooling", "avg")
     )
 
     # Build main config
@@ -141,6 +230,7 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
         num_workers=config_data.get("num_workers", 2),
         google_drive=drive_config,
         features=features_config,
+        extraction=extraction_config,
         # Environment variables
         sheet_id=os.getenv("GOOGLE_SHEET_ID"),
         worksheet_name=os.getenv("GOOGLE_WORKSHEET_NAME", "Sheet1"),
