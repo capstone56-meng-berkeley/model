@@ -1,0 +1,127 @@
+{
+  "_comment": "Example configuration with all available options documented",
+
+  "data_source": "drive",
+  "_data_source_options": ["drive", "local"],
+
+  "local": {
+    "images_dir": "data/images",
+    "labels_csv": "data/labels.csv"
+  },
+
+  "temp_dir": "data/temp_images",
+  "feature_cache": "data/feature_cache.npz",
+  "model_dir": "models",
+  "random_seed": 42,
+  "img_size": 224,
+  "batch_size": 16,
+  "num_workers": 2,
+
+  "google_drive": {
+    "row_id_column": "A",
+    "image_columns": ["D", "E", "F"],
+    "column_types": {
+      "D": "image",
+      "E": "image",
+      "F": "folder"
+    },
+    "_column_types_options": ["image", "folder"]
+  },
+
+  "features": {
+    "feature_columns": ["temperature", "cooling_rate", "material_type"],
+    "label_columns": ["hardness", "yield_strength"],
+    "column_types": {
+      "temperature": "numeric",
+      "cooling_rate": "numeric",
+      "material_type": "categorical"
+    },
+    "_column_types_options": ["numeric", "categorical", "text", "unique_string", "boolean"],
+
+    "preprocessing": {
+      "missing_data": {
+        "column_drop_threshold": 0.95,
+        "_column_drop_threshold_desc": "Drop column if more than this fraction is missing (0.0-1.0)",
+
+        "row_fill_threshold": 0.10,
+        "_row_fill_threshold_desc": "Fill missing values if less than this fraction is missing (0.0-1.0)",
+
+        "numeric_fill_strategy": "mean",
+        "_numeric_fill_strategy_options": ["mean", "median", "zero", "constant", "forward_fill", "backward_fill", "interpolate"],
+
+        "categorical_fill_strategy": "mode",
+        "_categorical_fill_strategy_options": ["mode", "unknown", "constant"],
+
+        "mid_range_strategy": "fill",
+        "_mid_range_strategy_options": ["fill", "drop_rows", "flag"]
+      },
+
+      "scaling": {
+        "method": "standard",
+        "_method_options": ["standard", "minmax", "robust", "maxabs", "none"],
+        "enabled": true
+      },
+
+      "encoding": {
+        "categorical": "onehot",
+        "_categorical_options": ["onehot", "label", "ordinal", "binary"],
+
+        "text": "tfidf",
+        "_text_options": ["tfidf", "skip"],
+
+        "unique_string": "label",
+        "_unique_string_options": ["label", "skip"],
+
+        "max_categories": 50,
+        "_max_categories_desc": "Maximum number of categories for onehot encoding before switching to label encoding"
+      }
+    }
+  },
+
+  "extraction": {
+    "backbones": ["vgg16"],
+    "_backbones_available": [
+      "resnet18",
+      "resnet50",
+      "resnet101",
+      "vgg16",
+      "vgg19",
+      "densenet121",
+      "efficientnet_b0",
+      "efficientnet_b4",
+      "convnext_tiny",
+      "mobilenet_v3",
+      "dinov2_vits14",
+      "dinov2_vitb14",
+      "dinov2_vitl14"
+    ],
+    "_backbones_feature_dims": {
+      "resnet18": 512,
+      "resnet50": 2048,
+      "resnet101": 2048,
+      "vgg16": 512,
+      "vgg19": 512,
+      "densenet121": 1024,
+      "efficientnet_b0": 1280,
+      "efficientnet_b4": 1792,
+      "convnext_tiny": 768,
+      "mobilenet_v3": 960,
+      "dinov2_vits14": 384,
+      "dinov2_vitb14": 768,
+      "dinov2_vitl14": 1024
+    },
+
+    "pooling": "avg",
+    "_pooling_options": ["avg", "max"],
+
+    "parallel": false,
+    "_parallel_desc": "Run multiple backbones in parallel using ThreadPoolExecutor (useful for multi-GPU setups)"
+  },
+
+  "_env_variables": {
+    "GOOGLE_SHEET_ID": "Your Google Sheet ID (from URL)",
+    "GOOGLE_WORKSHEET_NAME": "Sheet1",
+    "GOOGLE_CREDENTIALS_PATH": "credentials.json",
+    "GOOGLE_TOKEN_PATH": "token.json"
+  }
+}
