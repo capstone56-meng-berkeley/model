@@ -48,7 +48,8 @@
   },
 
   "extraction": {
-    "backbones": ["resnet50", "vgg16"],
-    "pooling": "avg"
+    "backbones": ["vgg16"],
+    "pooling": "avg",
+    "parallel": false
   }
 }
