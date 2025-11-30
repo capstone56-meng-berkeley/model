@@ -1,6 +1,7 @@
 """Feature extractor using multiple CNN backbones."""
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 
@@ -19,11 +20,12 @@ from .backbones import BackboneRegistry, get_backbone
 @dataclass
 class ExtractionConfig:
     """Configuration for feature extraction."""
-    backbones: List[str] = field(default_factory=lambda: ["resnet50", "vgg16"])
+    backbones: List[str] = field(default_factory=lambda: ["vgg16"])
     img_size: int = 224
     batch_size: int = 16
     num_workers: int = 2
     pooling: str = "avg"
+    parallel: bool = False  # Run multiple backbones in parallel
 
 
 class ImageDataset(Dataset):
@@ -122,11 +124,11 @@ class FeatureExtractor:
         for imgs, filenames in tqdm(dataloader, desc="Extracting features"):
             imgs = imgs.to(self.device, non_blocking=True)
 
-            # Extract from each backbone
-            batch_features = []
-            for backbone in self.backbones:
-                features = backbone(imgs)
-                batch_features.append(features.cpu().numpy())
+            # Extract from each backbone (parallel or sequential)
+            if self.config.parallel and len(self.backbones) > 1:
+                batch_features = self._extract_parallel(imgs)
+            else:
+                batch_features = self._extract_sequential(imgs)
 
             # Concatenate backbone features
             combined = np.concatenate(batch_features, axis=1)
@@ -137,6 +139,26 @@ class FeatureExtractor:
         X = np.vstack(all_features)
 
         return X, all_filenames
+
+    def _extract_sequential(self, imgs: torch.Tensor) -> List[np.ndarray]:
+        """Extract features sequentially from each backbone."""
+        batch_features = []
+        for backbone in self.backbones:
+            features = backbone(imgs)
+            batch_features.append(features.cpu().numpy())
+        return batch_features
+
+    def _extract_parallel(self, imgs: torch.Tensor) -> List[np.ndarray]:
+        """Extract features in parallel from multiple backbones."""
+        def run_backbone(backbone: BaseBackbone) -> np.ndarray:
+            features = backbone(imgs)
+            return features.cpu().numpy()
+
+        with ThreadPoolExecutor(max_workers=len(self.backbones)) as executor:
+            futures = [executor.submit(run_backbone, bb) for bb in self.backbones]
+            batch_features = [f.result() for f in futures]
+
+        return batch_features
 
     def get_feature_names(self) -> List[str]:
         """Get feature names for each dimension."""
@@ -158,17 +180,19 @@ def extract_image_features(
     backbones: List[str] = None,
     img_size: int = 224,
     batch_size: int = 16,
-    cache_path: Optional[str] = None
+    cache_path: Optional[str] = None,
+    parallel: bool = False
 ) -> Tuple[np.ndarray, List[str]]:
     """
     Convenience function to extract image features.
 
     Args:
         image_paths: List of image file paths
-        backbones: List of backbone names (default: resnet50, vgg16)
+        backbones: List of backbone names (default: vgg16)
         img_size: Image size for processing
         batch_size: Batch size for extraction
         cache_path: Optional path to cache features
+        parallel: Run multiple backbones in parallel
 
     Returns:
         Tuple of (features array, filenames list)
@@ -181,9 +205,10 @@ def extract_image_features(
 
     # Create config
     config = ExtractionConfig(
-        backbones=backbones or ["resnet50", "vgg16"],
+        backbones=backbones or ["vgg16"],
         img_size=img_size,
-        batch_size=batch_size
+        batch_size=batch_size,
+        parallel=parallel
     )
 
     # Extract
