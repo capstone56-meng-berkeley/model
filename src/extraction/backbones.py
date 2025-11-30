@@ -209,6 +209,68 @@ class MobileNetV3Backbone(BaseBackbone):
         return x
 
 
+# =============================================================================
+# DINOv2 Backbones (Self-supervised Vision Transformers)
+# =============================================================================
+
+
+@BackboneRegistry.register("dinov2_vits14")
+class DINOv2ViTS14Backbone(BaseBackbone):
+    """DINOv2 ViT-S/14 backbone (lightweight self-supervised)."""
+
+    feature_dim = 384
+
+    def __init__(self, pretrained: bool = True):
+        super().__init__()
+        self.model = torch.hub.load(
+            'facebookresearch/dinov2',
+            'dinov2_vits14',
+            pretrained=pretrained
+        )
+        self.freeze()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)
+
+
+@BackboneRegistry.register("dinov2_vitb14")
+class DINOv2ViTB14Backbone(BaseBackbone):
+    """DINOv2 ViT-B/14 backbone (balanced self-supervised)."""
+
+    feature_dim = 768
+
+    def __init__(self, pretrained: bool = True):
+        super().__init__()
+        self.model = torch.hub.load(
+            'facebookresearch/dinov2',
+            'dinov2_vitb14',
+            pretrained=pretrained
+        )
+        self.freeze()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)
+
+
+@BackboneRegistry.register("dinov2_vitl14")
+class DINOv2ViTL14Backbone(BaseBackbone):
+    """DINOv2 ViT-L/14 backbone (high-quality self-supervised)."""
+
+    feature_dim = 1024
+
+    def __init__(self, pretrained: bool = True):
+        super().__init__()
+        self.model = torch.hub.load(
+            'facebookresearch/dinov2',
+            'dinov2_vitl14',
+            pretrained=pretrained
+        )
+        self.freeze()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)
+
+
 def get_backbone(name: str, **kwargs) -> BaseBackbone:
     """
     Factory function to get a backbone by name.
