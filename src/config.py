@@ -73,8 +73,9 @@ class FeaturesConfig:
 @dataclass
 class ExtractionConfig:
     """Configuration for image feature extraction."""
-    backbones: List[str] = field(default_factory=lambda: ["resnet50", "vgg16"])
+    backbones: List[str] = field(default_factory=lambda: ["vgg16"])
     pooling: str = "avg"
+    parallel: bool = False  # Run multiple backbones in parallel
 
 
 @dataclass
@@ -213,8 +214,9 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
     # Parse extraction config
     extraction_data = config_data.get("extraction", {})
     extraction_config = ExtractionConfig(
-        backbones=extraction_data.get("backbones", ["resnet50", "vgg16"]),
-        pooling=extraction_data.get("pooling", "avg")
+        backbones=extraction_data.get("backbones", ["vgg16"]),
+        pooling=extraction_data.get("pooling", "avg"),
+        parallel=extraction_data.get("parallel", False)
     )
 
     # Build main config
