@@ -8,17 +8,14 @@ import pandas as pd
 
 from .base import BaseTypeHandler
 from .type_handlers import TypeHandlerRegistry, get_type_handler
-
-
-# =============================================================================
-# Inferred Column Type Constants
-# =============================================================================
-TYPE_NUMERIC = "numeric"        # int8/16/32/64, uint8/16/32/64, float16/32/64
-TYPE_CATEGORICAL = "categorical"  # category dtype or object with few unique values
-TYPE_TEXT = "text"              # object with high uniqueness and long avg length
-TYPE_UNIQUE_STRING = "unique_string"  # object with high uniqueness, short values (IDs, names)
-TYPE_BOOLEAN = "boolean"        # bool dtype
-TYPE_DATETIME = "datetime"      # datetime64
+from .type_handlers import (
+    TYPE_NUMERIC,
+    TYPE_CATEGORICAL,
+    TYPE_TEXT,
+    TYPE_UNIQUE_STRING,
+    TYPE_BOOLEAN,
+    TYPE_DATETIME,
+)
 
 
 @dataclass
@@ -79,7 +76,7 @@ class FeaturePreprocessor:
         self._feature_names: List[str] = []
         self._fitted = False
 
-    def fit(self, df: pd.DataFrame, columns: List[str]) -> 'FeaturePreprocessor':
+    def fit(self, df: pd.DataFrame) -> 'FeaturePreprocessor':
         """
         Fit the preprocessing pipeline on training data.
 
@@ -93,6 +90,7 @@ class FeaturePreprocessor:
         self._handlers = {}
         self._dropped_columns = []
         self._feature_names = []
+        columns = df.columns.tolist()
 
         for col in columns:
             if col not in df.columns:
@@ -162,9 +160,9 @@ class FeaturePreprocessor:
         # Concatenate all parts
         return np.hstack(transformed_parts)
 
-    def fit_transform(self, df: pd.DataFrame, columns: List[str]) -> np.ndarray:
+    def fit_transform(self, df: pd.DataFrame) -> np.ndarray:
         """Fit and transform in one step."""
-        return self.fit(df, columns).transform(df)
+        return self.fit(df).transform(df)
 
     def _infer_column_type(self, series: pd.Series) -> str:
         """

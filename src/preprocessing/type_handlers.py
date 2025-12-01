@@ -11,13 +11,20 @@ from .imputers import ImputerRegistry
 from .encoders import EncoderRegistry
 from .scalers import ScalerRegistry
 
+TYPE_NUMERIC = "numeric"        # int8/16/32/64, uint8/16/32/64, float16/32/64
+TYPE_CATEGORICAL = "categorical"  # category dtype or object with few unique values
+TYPE_TEXT = "text"              # object with high uniqueness and long avg length
+TYPE_UNIQUE_STRING = "unique_string"  # object with high uniqueness, short values (IDs, names)
+TYPE_BOOLEAN = "boolean"        # bool dtype
+TYPE_DATETIME = "datetime"      # datetime64
+
 
 class TypeHandlerRegistry(Registry):
     """Registry for column type handlers."""
     _registry = {}
 
 
-@TypeHandlerRegistry.register("numeric")
+@TypeHandlerRegistry.register(TYPE_NUMERIC)
 class NumericHandler(BaseTypeHandler):
     """Handler for numeric (continuous/discrete) columns."""
 
@@ -97,7 +104,7 @@ class NumericHandler(BaseTypeHandler):
         return scaled
 
 
-@TypeHandlerRegistry.register("categorical")
+@TypeHandlerRegistry.register(TYPE_CATEGORICAL)
 class CategoricalHandler(BaseTypeHandler):
     """Handler for categorical columns."""
 
@@ -172,7 +179,7 @@ class CategoricalHandler(BaseTypeHandler):
         return encoded
 
 
-@TypeHandlerRegistry.register("text")
+@TypeHandlerRegistry.register(TYPE_TEXT)
 class TextHandler(BaseTypeHandler):
     """Handler for free-form text columns."""
 
@@ -244,7 +251,7 @@ class TextHandler(BaseTypeHandler):
         return encoded
 
 
-@TypeHandlerRegistry.register("unique_string")
+@TypeHandlerRegistry.register(TYPE_UNIQUE_STRING)
 class UniqueStringHandler(BaseTypeHandler):
     """Handler for unique identifier columns (sample IDs, batch numbers)."""
 
@@ -309,7 +316,7 @@ class UniqueStringHandler(BaseTypeHandler):
         return encoded
 
 
-@TypeHandlerRegistry.register("boolean")
+@TypeHandlerRegistry.register(TYPE_BOOLEAN)
 class BooleanHandler(BaseTypeHandler):
     """Handler for boolean columns."""
 
