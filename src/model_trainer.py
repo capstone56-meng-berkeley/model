@@ -21,17 +21,21 @@ from sklearn.preprocessing import StandardScaler
 from .config import Config, ensure_dir
 
 
-def build_ensemble_models(random_seed: int = 42) -> Dict[str, MultiOutputRegressor]:
+def build_ensemble_models(random_seed: int = 42, n_targets: int = 1) -> Dict:
     """
-    Build ensemble regressor models wrapped for multi-output.
+    Build ensemble regressor models.
+
+    Uses MultiOutputRegressor only when n_targets > 1 and model doesn't
+    support native multi-output. RandomForest supports native multi-output.
 
     Args:
         random_seed: Random seed for reproducibility
+        n_targets: Number of target columns
 
     Returns:
-        Dictionary of model name -> MultiOutputRegressor
+        Dictionary of model name -> regressor
     """
-    # Random Forest
+    # Random Forest (supports native multi-output)
     rf = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
         ("reg", RandomForestRegressor(
@@ -42,13 +46,13 @@ def build_ensemble_models(random_seed: int = 42) -> Dict[str, MultiOutputRegress
         ))
     ])
 
-    # Gradient Boosting
+    # Gradient Boosting (single output only)
     gbr = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
         ("reg", GradientBoostingRegressor(random_state=random_seed))
     ])
 
-    # AdaBoost
+    # AdaBoost (single output only)
     abr = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
         ("reg", AdaBoostRegressor(
@@ -57,15 +61,20 @@ def build_ensemble_models(random_seed: int = 42) -> Dict[str, MultiOutputRegress
         ))
     ])
 
-    return {
-        "RF": MultiOutputRegressor(rf),
-        "GBR": MultiOutputRegressor(gbr),
-        "ABR": MultiOutputRegressor(abr),
-    }
+    if n_targets == 1:
+        # Single target: no wrapper needed
+        return {"RF": rf, "GBR": gbr, "ABR": abr}
+    else:
+        # Multi-target: RF native, others need wrapper
+        return {
+            "RF": rf,  # Native multi-output support
+            "GBR": MultiOutputRegressor(gbr),
+            "ABR": MultiOutputRegressor(abr),
+        }
 
 
 def evaluate_model(
-    model: MultiOutputRegressor,
+    model,
     X: np.ndarray,
     Y: np.ndarray,
     target_columns: List[str],
@@ -77,7 +86,7 @@ def evaluate_model(
     Args:
         model: Trained model
         X: Feature matrix
-        Y: Target matrix
+        Y: Target array (1D or 2D)
         target_columns: Names of target columns
         split_name: Name of the data split
 
@@ -85,6 +94,12 @@ def evaluate_model(
         Tuple of (overall_metrics, predictions, per_target_metrics)
     """
     Y_pred = model.predict(X)
+
+    # Ensure 2D for consistent handling
+    if Y.ndim == 1:
+        Y = Y.reshape(-1, 1)
+    if Y_pred.ndim == 1:
+        Y_pred = Y_pred.reshape(-1, 1)
 
     # Overall metrics
     r2 = r2_score(Y, Y_pred, multioutput="uniform_average")
@@ -120,11 +135,17 @@ def plot_predictions(
     Plot predicted vs true values for each target.
 
     Args:
-        Y_true: True target values
-        Y_pred: Predicted values
+        Y_true: True target values (1D or 2D)
+        Y_pred: Predicted values (1D or 2D)
         target_columns: Names of target columns
         save_path: Optional path to save the figure
     """
+    # Ensure 2D for consistent handling
+    if Y_true.ndim == 1:
+        Y_true = Y_true.reshape(-1, 1)
+    if Y_pred.ndim == 1:
+        Y_pred = Y_pred.reshape(-1, 1)
+
     n_targets = len(target_columns)
     fig, axes = plt.subplots(1, n_targets, figsize=(5 * n_targets, 4))
 
@@ -167,10 +188,11 @@ class ModelTrainer:
             config: Configuration object
         """
         self.config = config
-        self.models = build_ensemble_models(config.random_seed)
-        self.fitted_models: Dict[str, MultiOutputRegressor] = {}
+        self.models = None  # Built lazily when n_targets is known
+        self.fitted_models: Dict = {}
         self.best_model_name: str = None
-        self.best_model: MultiOutputRegressor = None
+        self.best_model = None
+        self.n_targets: int = None
 
         # Set random seed
         np.random.seed(config.random_seed)
@@ -220,14 +242,22 @@ class ModelTrainer:
 
         Args:
             X_train: Training features
-            Y_train: Training targets
+            Y_train: Training targets (1D or 2D)
             X_val: Validation features
-            Y_val: Validation targets
+            Y_val: Validation targets (1D or 2D)
             target_columns: Names of target columns
 
         Returns:
             Name of the best model
         """
+        # Determine n_targets and build models lazily
+        self.n_targets = len(target_columns)
+        self.models = build_ensemble_models(
+            random_seed=self.config.random_seed,
+            n_targets=self.n_targets
+        )
+        print(f"Building models for {self.n_targets} target(s)...")
+
         best_val_r2 = -np.inf
 
         for name, model in self.models.items():
