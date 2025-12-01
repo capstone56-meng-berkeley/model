@@ -10,6 +10,17 @@ from .base import BaseTypeHandler
 from .type_handlers import TypeHandlerRegistry, get_type_handler
 
 
+# =============================================================================
+# Inferred Column Type Constants
+# =============================================================================
+TYPE_NUMERIC = "numeric"        # int8/16/32/64, uint8/16/32/64, float16/32/64
+TYPE_CATEGORICAL = "categorical"  # category dtype or object with few unique values
+TYPE_TEXT = "text"              # object with high uniqueness and long avg length
+TYPE_UNIQUE_STRING = "unique_string"  # object with high uniqueness, short values (IDs, names)
+TYPE_BOOLEAN = "boolean"        # bool dtype
+TYPE_DATETIME = "datetime"      # datetime64
+
+
 @dataclass
 class MissingDataConfig:
     """Configuration for missing data handling."""
@@ -39,7 +50,7 @@ class EncodingConfig:
 @dataclass
 class PreprocessingConfig:
     """Full preprocessing configuration."""
-    column_types: Dict[str, str] = field(default_factory=dict)
+    # column_types: Dict[str, str] = field(default_factory=dict)
     missing_data: MissingDataConfig = field(default_factory=MissingDataConfig)
     scaling: ScalingConfig = field(default_factory=ScalingConfig)
     encoding: EncodingConfig = field(default_factory=EncodingConfig)
@@ -100,8 +111,9 @@ class FeaturePreprocessor:
                 self._dropped_columns.append(col)
                 continue
 
-            # Get column type
-            col_type = self.config.column_types.get(col, "numeric")
+            # Infer column type from dtype
+            col_type = self._infer_column_type(series)
+            print(f"  {col}: {series.dtype} → {col_type}")
 
             # Build handler with appropriate config
             handler = self._create_handler(col, col_type, missing_ratio)
@@ -154,6 +166,70 @@ class FeaturePreprocessor:
         """Fit and transform in one step."""
         return self.fit(df, columns).transform(df)
 
+    def _infer_column_type(self, series: pd.Series) -> str:
+        """
+        Infer column type from pandas dtype.
+
+        Args:
+            series: Pandas Series to infer type from
+
+        Returns:
+            Inferred type constant (TYPE_NUMERIC, TYPE_CATEGORICAL, etc.)
+        """
+        dtype = series.dtype
+        dtype_name = str(dtype)
+
+        # Boolean
+        if pd.api.types.is_bool_dtype(dtype):
+            return TYPE_BOOLEAN
+
+        # Numeric types (int8/16/32/64, uint8/16/32/64, float16/32/64)
+        if pd.api.types.is_numeric_dtype(dtype):
+            return TYPE_NUMERIC
+
+        # Datetime
+        if pd.api.types.is_datetime64_any_dtype(dtype):
+            return TYPE_DATETIME
+
+        # Categorical dtype
+        if pd.api.types.is_categorical_dtype(dtype):
+            return TYPE_CATEGORICAL
+
+        # Object/string dtype - use heuristics
+        if dtype_name in ("object", "string", "str"):
+            return self._infer_object_type(series)
+
+        # Default fallback
+        return TYPE_CATEGORICAL
+
+    def _infer_object_type(self, series: pd.Series) -> str:
+        """
+        Infer type for object/string columns using heuristics.
+
+        Args:
+            series: Pandas Series with object dtype
+
+        Returns:
+            Inferred type constant (TYPE_CATEGORICAL, TYPE_TEXT, or TYPE_UNIQUE_STRING)
+        """
+        n_unique = series.nunique()
+        n_total = len(series.dropna())
+
+        if n_total == 0:
+            return TYPE_CATEGORICAL
+
+        unique_ratio = n_unique / n_total
+        avg_length = series.dropna().astype(str).str.len().mean()
+
+        # High uniqueness (>90% unique values)
+        if unique_ratio > 0.9:
+            if avg_length > 50:
+                return TYPE_TEXT  # Long text content
+            return TYPE_UNIQUE_STRING  # IDs, names, etc.
+
+        # Low to medium uniqueness -> categorical
+        return TYPE_CATEGORICAL
+
     def _create_handler(
         self,
         column_name: str,
@@ -174,7 +250,7 @@ class FeaturePreprocessor:
         # Determine impute strategy based on missing ratio and config
         if missing_ratio <= self.config.missing_data.row_fill_threshold:
             # Low missing: use configured strategy
-            if column_type == "numeric":
+            if column_type == TYPE_NUMERIC:
                 impute_strategy = self.config.missing_data.numeric_fill_strategy
             else:
                 impute_strategy = self.config.missing_data.categorical_fill_strategy
@@ -182,7 +258,7 @@ class FeaturePreprocessor:
             # Mid-range missing: use mid_range_strategy
             strategy = self.config.missing_data.mid_range_strategy
             if strategy == "fill":
-                if column_type == "numeric":
+                if column_type == TYPE_NUMERIC:
                     impute_strategy = self.config.missing_data.numeric_fill_strategy
                 else:
                     impute_strategy = self.config.missing_data.categorical_fill_strategy
@@ -199,14 +275,14 @@ class FeaturePreprocessor:
         }
 
         # Add type-specific config
-        if column_type == "numeric":
+        if column_type == TYPE_NUMERIC:
             kwargs["scale_method"] = self.config.scaling.method if self.config.scaling.enabled else "none"
-        elif column_type == "categorical":
+        elif column_type == TYPE_CATEGORICAL:
             kwargs["encode_method"] = self.config.encoding.categorical
             kwargs["max_categories"] = self.config.encoding.max_categories
-        elif column_type == "text":
+        elif column_type == TYPE_TEXT:
             kwargs["encode_method"] = self.config.encoding.text
-        elif column_type == "unique_string":
+        elif column_type == TYPE_UNIQUE_STRING:
             kwargs["encode_method"] = self.config.encoding.unique_string
 
         return get_type_handler(column_type, **kwargs)
@@ -227,25 +303,23 @@ class FeaturePreprocessor:
 def preprocess_features(
     df: pd.DataFrame,
     feature_columns: List[str],
-    column_types: Dict[str, str],
     config: Optional[PreprocessingConfig] = None
 ) -> Tuple[np.ndarray, FeaturePreprocessor]:
     """
     Convenience function to preprocess features.
 
+    Column types are automatically inferred from DataFrame dtypes.
+
     Args:
         df: DataFrame with data
         feature_columns: List of columns to process
-        column_types: Mapping of column name to type
         config: Optional preprocessing config
 
     Returns:
         Tuple of (preprocessed array, fitted preprocessor)
     """
     if config is None:
-        config = PreprocessingConfig(column_types=column_types)
-    else:
-        config.column_types = column_types
+        config = PreprocessingConfig()
 
     preprocessor = FeaturePreprocessor(config)
     X = preprocessor.fit_transform(df, feature_columns)
