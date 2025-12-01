@@ -189,8 +189,9 @@ def compute_staged_metrics(
 def plot_learning_curves(
     history: Dict[str, List[float]],
     model_name: str,
-    save_path: str = None
-) -> None:
+    save_path: str = None,
+    show: bool = True
+):
     """
     Plot learning curves showing metrics across iterations.
 
@@ -198,6 +199,10 @@ def plot_learning_curves(
         history: Dictionary with train/val metrics per iteration
         model_name: Name of the model for the title
         save_path: Optional path to save the figure
+        show: Whether to display the plot (True for notebooks)
+
+    Returns:
+        matplotlib Figure object
     """
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
@@ -228,7 +233,65 @@ def plot_learning_curves(
         plt.savefig(save_path, dpi=150)
         print(f"✓ Saved learning curves to {save_path}")
 
-    plt.close()
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+    return fig
+
+
+def plot_model_comparison(
+    results: Dict[str, Dict[str, float]],
+    save_path: str = None,
+    show: bool = True
+):
+    """
+    Plot bar chart comparing metrics across models.
+
+    Args:
+        results: Dictionary of {model_name: {metric_name: value}}
+        save_path: Optional path to save the figure
+        show: Whether to display the plot (True for notebooks)
+
+    Returns:
+        matplotlib Figure object
+    """
+    model_names = list(results.keys())
+    metrics = ['R2', 'MAE', 'RMSE']
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+
+    colors = ['#2ecc71', '#3498db', '#e74c3c']  # green, blue, red
+
+    for idx, metric in enumerate(metrics):
+        values = [results[model][metric] for model in model_names]
+        bars = axes[idx].bar(model_names, values, color=colors[idx], alpha=0.8)
+        axes[idx].set_ylabel(metric)
+        axes[idx].set_title(f'{metric} by Model')
+        axes[idx].grid(True, alpha=0.3, axis='y')
+
+        # Add value labels on bars
+        for bar, val in zip(bars, values):
+            height = bar.get_height()
+            axes[idx].annotate(f'{val:.3f}',
+                             xy=(bar.get_x() + bar.get_width() / 2, height),
+                             xytext=(0, 3),
+                             textcoords="offset points",
+                             ha='center', va='bottom', fontsize=9)
+
+    plt.suptitle('Model Comparison on Test Set', fontsize=12, fontweight='bold')
+    plt.tight_layout()
+
+    if save_path:
+        ensure_dir(os.path.dirname(save_path))
+        plt.savefig(save_path, dpi=150)
+        print(f"✓ Saved comparison plot to {save_path}")
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
     return fig
 
@@ -410,13 +473,14 @@ class ModelTrainer:
 
         return self.best_model_name
 
-    def plot_learning_curves(self, model_name: str = None, save_dir: str = None) -> None:
+    def plot_learning_curves(self, model_name: str = None, save_dir: str = None, show: bool = True) -> None:
         """
         Plot learning curves for boosting models.
 
         Args:
             model_name: Specific model to plot (default: all available)
             save_dir: Directory to save plots (default: don't save)
+            show: Whether to display the plot (default: True for notebook use)
         """
         if not self.learning_histories:
             print("No learning histories available. Run train_and_evaluate with track_learning_curves=True")
@@ -433,7 +497,7 @@ class ModelTrainer:
             if save_dir:
                 save_path = os.path.join(save_dir, f"{name}_learning_curves.png")
 
-            plot_learning_curves(self.learning_histories[name], name, save_path)
+            plot_learning_curves(self.learning_histories[name], name, save_path, show=show)
 
     def evaluate_on_test(
         self,
@@ -468,6 +532,71 @@ class ModelTrainer:
                   f"MAE={metrics['MAE']:.3f}, RMSE={metrics['RMSE']:.3f}")
 
         return test_metrics, Y_pred
+
+    def evaluate_all_on_test(
+        self,
+        X_test: np.ndarray,
+        Y_test: np.ndarray,
+        target_columns: List[str]
+    ) -> Dict[str, Dict[str, float]]:
+        """
+        Evaluate ALL fitted models on test set.
+
+        Args:
+            X_test: Test features
+            Y_test: Test targets
+            target_columns: Names of target columns
+
+        Returns:
+            Dictionary of {model_name: {metric_name: value}}
+        """
+        if not self.fitted_models:
+            raise ValueError("No models trained yet. Call train_and_evaluate first.")
+
+        self.test_results = {}
+
+        print("\n" + "="*50)
+        print("Test Set Evaluation - All Models")
+        print("="*50)
+
+        for name, model in self.fitted_models.items():
+            test_metrics, Y_pred, per_target = evaluate_model(
+                model, X_test, Y_test, target_columns, split_name="test"
+            )
+
+            self.test_results[name] = test_metrics
+
+            print(f"\n{name}:")
+            print(f"  R2={test_metrics['R2']:.4f}, "
+                  f"MAE={test_metrics['MAE']:.4f}, RMSE={test_metrics['RMSE']:.4f}")
+
+            for col, metrics in per_target.items():
+                print(f"    {col}: R2={metrics['R2']:.3f}, "
+                      f"MAE={metrics['MAE']:.3f}, RMSE={metrics['RMSE']:.3f}")
+
+        # Highlight best model
+        best_name = max(self.test_results, key=lambda k: self.test_results[k]['R2'])
+        print(f"\n✓ Best on test: {best_name} (R2={self.test_results[best_name]['R2']:.4f})")
+
+        return self.test_results
+
+    def plot_test_comparison(self, save_dir: str = None, show: bool = True) -> None:
+        """
+        Plot comparison of all models on test set.
+
+        Args:
+            save_dir: Directory to save the plot
+            show: Whether to display the plot (True for notebooks)
+        """
+        if not hasattr(self, 'test_results') or not self.test_results:
+            print("No test results available. Run evaluate_all_on_test first.")
+            return
+
+        save_path = None
+        if save_dir:
+            save_path = os.path.join(save_dir, "model_comparison.png")
+
+        plot_model_comparison(self.test_results, save_path, show=show)
 
     def save_model(self, path: str = None) -> str:
         """
