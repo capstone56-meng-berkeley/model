@@ -1,0 +1,116 @@
+{
+  "run_id": "20260212_015108",
+  "timestamp": "2026-02-12T01:51:20.233329+00:00",
+  "configuration": {
+    "dataset": "datasets/metadata_latest.csv",
+    "worksheet_name": "Sheet1",
+    "target_columns": [
+      "Cycle1_HoldingTemp (C)",
+      "Cycle1_HoldingTime (min)"
+    ],
+    "backbones": [
+      "resnet50",
+      "vgg16"
+    ],
+    "regression_models": [
+      "RF",
+      "GBR",
+      "ABR"
+    ],
+    "scaler": "standard",
+    "imputer": "median",
+    "n_estimators": 100,
+    "learning_rate": 0.1,
+    "test_size": 0.15,
+    "val_size": 0.15,
+    "random_seed": 42,
+    "feature_dimensions": {
+      "tabular": 14,
+      "image": 2560,
+      "total": 2574
+    },
+    "samples": {
+      "total": 82,
+      "train": 58,
+      "val": 11,
+      "test": 13
+    }
+  },
+  "results": {
+    "RF": {
+      "train": {
+        "R2": 0.9267,
+        "MAE": 11.873,
+        "RMSE": 19.0575
+      },
+      "val": {
+        "R2": 0.5962,
+        "MAE": 19.2368,
+        "RMSE": 29.2133
+      },
+      "test": {
+        "R2": 0.7292,
+        "MAE": 20.115,
+        "RMSE": 30.2273
+      }
+    },
+    "GBR": {
+      "train": {
+        "R2": 1.0,
+        "MAE": 0.0104,
+        "RMSE": 0.0172
+      },
+      "val": {
+        "R2": 0.6257,
+        "MAE": 19.9901,
+        "RMSE": 30.5503
+      },
+      "test": {
+        "R2": 0.796,
+        "MAE": 22.0756,
+        "RMSE": 32.4962
+      }
+    },
+    "ABR": {
+      "train": {
+        "R2": 0.9866,
+        "MAE": 5.8243,
+        "RMSE": 9.5852
+      },
+      "val": {
+        "R2": 0.5528,
+        "MAE": 19.4248,
+        "RMSE": 33.1094
+      },
+      "test": {
+        "R2": 0.5995,
+        "MAE": 28.7359,
+        "RMSE": 46.1177
+      }
+    }
+  },
+  "best_model": {
+    "name": "GBR",
+    "val_R2": 0.6257,
+    "test_R2": 0.796,
+    "per_target": {
+      "Cycle1_HoldingTemp (C)": {
+        "R2": 0.6613,
+        "MAE": 38.7174,
+        "RMSE": 45.2636
+      },
+      "Cycle1_HoldingTime (min)": {
+        "R2": 0.9307,
+        "MAE": 5.4338,
+        "RMSE": 7.9502
+      }
+    }
+  },
+  "training_time_seconds": 10.58,
+  "artifacts": [
+    "model_comparison.png",
+    "predictions_GBR.png",
+    "residuals_GBR.png",
+    "best_model.joblib"
+  ]
+}

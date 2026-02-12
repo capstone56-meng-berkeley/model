@@ -1,0 +1,88 @@
+name: Model Training
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_path:
+        description: 'Local CSV path (blank = Google Sheets)'
+        type: string
+        default: 'datasets/metadata_latest.csv'
+      target_columns:
+        description: 'Comma-separated target columns'
+        type: string
+        default: 'Cycle1_HoldingTemp (C),Cycle1_HoldingTime (min)'
+      backbones:
+        description: 'CNN backbones (comma-separated)'
+        type: string
+        default: 'resnet50,vgg16'
+      regression_models:
+        description: 'Regression models (RF,GBR,ABR)'
+        type: string
+        default: 'RF,GBR,ABR'
+      n_estimators:
+        description: 'Number of estimators'
+        type: string
+        default: '100'
+      learning_rate:
+        description: 'GBR learning rate'
+        type: string
+        default: '0.1'
+      test_size:
+        description: 'Test split fraction'
+        type: string
+        default: '0.15'
+      val_size:
+        description: 'Validation split fraction'
+        type: string
+        default: '0.15'
+      scaling_method:
+        description: 'Scaler (standard/minmax/robust/none)'
+        type: string
+        default: 'standard'
+      imputer_strategy:
+        description: 'Imputer (median/mean/zero)'
+        type: string
+        default: 'median'
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run training pipeline
+        run: python run_training.py
+        env:
+          DATASET_PATH: ${{ inputs.dataset_path }}
+          TARGET_COLUMNS: ${{ inputs.target_columns }}
+          BACKBONES: ${{ inputs.backbones }}
+          REGRESSION_MODELS: ${{ inputs.regression_models }}
+          N_ESTIMATORS: ${{ inputs.n_estimators }}
+          LEARNING_RATE: ${{ inputs.learning_rate }}
+          TEST_SIZE: ${{ inputs.test_size }}
+          VAL_SIZE: ${{ inputs.val_size }}
+          SCALING_METHOD: ${{ inputs.scaling_method }}
+          IMPUTER_STRATEGY: ${{ inputs.imputer_strategy }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_CREDENTIALS_PATH: ${{ secrets.GOOGLE_CREDENTIALS_PATH }}
+          GOOGLE_TOKEN_PATH: ${{ secrets.GOOGLE_TOKEN_PATH }}
+
+      - name: Upload run artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: training-run-${{ github.run_id }}
+          path: runs/
+          retention-days: 90

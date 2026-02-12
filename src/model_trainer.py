@@ -24,7 +24,9 @@ from .config import Config, ensure_dir
 def build_ensemble_models(
     random_seed: int = 42,
     n_targets: int = 1,
-    n_estimators: int = 400
+    n_estimators: int = 400,
+    learning_rate: float = 0.1,
+    model_selection: List[str] = None
 ) -> Dict:
     """
     Build ensemble regressor models.
@@ -36,10 +38,14 @@ def build_ensemble_models(
         random_seed: Random seed for reproducibility
         n_targets: Number of target columns
         n_estimators: Number of trees/iterations for ensemble models
+        learning_rate: Learning rate for GradientBoostingRegressor
+        model_selection: List of model names to build (default: all)
 
     Returns:
         Dictionary of model name -> regressor
     """
+    all_models = {}
+
     # Random Forest (supports native multi-output)
     rf = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
@@ -50,12 +56,14 @@ def build_ensemble_models(
             n_jobs=-1
         ))
     ])
+    all_models["RF"] = rf
 
     # Gradient Boosting (single output only)
     gbr = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
         ("reg", GradientBoostingRegressor(
             n_estimators=n_estimators,
+            learning_rate=learning_rate,
             random_state=random_seed
         ))
     ])
@@ -70,15 +78,17 @@ def build_ensemble_models(
     ])
 
     if n_targets == 1:
-        # Single target: no wrapper needed
-        return {"RF": rf, "GBR": gbr, "ABR": abr}
+        all_models["GBR"] = gbr
+        all_models["ABR"] = abr
     else:
-        # Multi-target: RF native, others need wrapper
-        return {
-            "RF": rf,  # Native multi-output support
-            "GBR": MultiOutputRegressor(gbr),
-            "ABR": MultiOutputRegressor(abr),
-        }
+        all_models["GBR"] = MultiOutputRegressor(gbr)
+        all_models["ABR"] = MultiOutputRegressor(abr)
+
+    # Filter to selected models
+    if model_selection:
+        all_models = {k: v for k, v in all_models.items() if k in model_selection}
+
+    return all_models
 
 
 def evaluate_model(
@@ -351,16 +361,26 @@ def plot_predictions(
 class ModelTrainer:
     """Trains and evaluates ensemble models."""
 
-    def __init__(self, config: Config, n_estimators: int = 400):
+    def __init__(
+        self,
+        config: Config,
+        n_estimators: int = 400,
+        learning_rate: float = 0.1,
+        model_selection: List[str] = None
+    ):
         """
         Initialize the model trainer.
 
         Args:
             config: Configuration object
             n_estimators: Number of trees/iterations for ensemble models
+            learning_rate: Learning rate for GradientBoostingRegressor
+            model_selection: List of model names to train (default: all)
         """
         self.config = config
         self.n_estimators = n_estimators
+        self.learning_rate = learning_rate
+        self.model_selection = model_selection
         self.models = None  # Built lazily when n_targets is known
         self.fitted_models: Dict = {}
         self.best_model_name: str = None
@@ -431,7 +451,9 @@ class ModelTrainer:
         self.models = build_ensemble_models(
             random_seed=self.config.random_seed,
             n_targets=self.n_targets,
-            n_estimators=self.n_estimators
+            n_estimators=self.n_estimators,
+            learning_rate=self.learning_rate,
+            model_selection=self.model_selection
         )
         print(f"Building models for {self.n_targets} target(s) with {self.n_estimators} estimators...")
 

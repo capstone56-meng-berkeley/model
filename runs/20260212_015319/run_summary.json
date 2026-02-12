@@ -1,0 +1,93 @@
+{
+  "run_id": "20260212_015319",
+  "timestamp": "2026-02-12T01:53:23.116498+00:00",
+  "configuration": {
+    "dataset": "datasets/metadata_latest.csv",
+    "worksheet_name": "Sheet1",
+    "target_columns": [
+      "Cycle1_HoldingTemp (C)"
+    ],
+    "backbones": [
+      "resnet50",
+      "vgg16"
+    ],
+    "regression_models": [
+      "RF",
+      "GBR"
+    ],
+    "scaler": "standard",
+    "imputer": "median",
+    "n_estimators": 100,
+    "learning_rate": 0.1,
+    "test_size": 0.15,
+    "val_size": 0.15,
+    "random_seed": 42,
+    "feature_dimensions": {
+      "tabular": 14,
+      "image": 2560,
+      "total": 2574
+    },
+    "samples": {
+      "total": 82,
+      "train": 58,
+      "val": 11,
+      "test": 13
+    }
+  },
+  "results": {
+    "RF": {
+      "train": {
+        "R2": 0.8987,
+        "MAE": 20.171,
+        "RMSE": 27.7722
+      },
+      "val": {
+        "R2": 0.2181,
+        "MAE": 36.8864,
+        "RMSE": 44.788
+      },
+      "test": {
+        "R2": 0.5937,
+        "MAE": 40.8631,
+        "RMSE": 49.5715
+      }
+    },
+    "GBR": {
+      "train": {
+        "R2": 1.0,
+        "MAE": 0.0193,
+        "RMSE": 0.0242
+      },
+      "val": {
+        "R2": 0.2855,
+        "MAE": 37.0572,
+        "RMSE": 42.8136
+      },
+      "test": {
+        "R2": 0.6613,
+        "MAE": 38.7174,
+        "RMSE": 45.2636
+      }
+    }
+  },
+  "best_model": {
+    "name": "GBR",
+    "val_R2": 0.2855,
+    "test_R2": 0.6613,
+    "per_target": {
+      "Cycle1_HoldingTemp (C)": {
+        "R2": 0.6613,
+        "MAE": 38.7174,
+        "RMSE": 45.2636
+      }
+    }
+  },
+  "training_time_seconds": 3.43,
+  "artifacts": [
+    "model_comparison.png",
+    "predictions_GBR.png",
+    "residuals_GBR.png",
+    "learning_curves_GBR.png",
+    "best_model.joblib"
+  ]
+}
