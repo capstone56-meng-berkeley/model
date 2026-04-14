@@ -344,20 +344,55 @@ def main():
     # -- CNN image features -------------------------------------------------
     print("\n[7/9] CNN image features...")
 
+    _F_RE_IMG = re.compile(r'_F_\d+\.[a-z]+$', re.IGNORECASE)
+
+    def _img_key_cnn(filename):
+        """Normalise 'row_id_F_N.jpg' → 'row_id' for grouping."""
+        return _F_RE_IMG.sub('', os.path.basename(filename)).lower()
+
+    def _id_key_cnn(row_id):
+        return str(row_id).strip().lower().replace('-', '_').replace(' ', '_')
+
     cache_path = env["image_cache_path"]
     X_img_train = X_img_val = X_img_test = None
+
     if cache_path and os.path.exists(cache_path):
         print(f"  Loading image features from cache: {cache_path}")
-        data = np.load(cache_path, allow_pickle=True)
-        X_images_all = data["X"].astype(np.float32)
-        if X_images_all.shape[0] != len(df_filtered):
-            print(f"  Warning: cache has {X_images_all.shape[0]} rows, "
-                  f"filtered dataset has {len(df_filtered)} — skipping CNN features")
+        _cdata = np.load(cache_path, allow_pickle=True)
+        X_cache = _cdata["X"].astype(np.float32)
+        cache_filenames = [str(fn) for fn in _cdata["filenames"]]
+
+        if X_cache.shape[0] == len(df_filtered):
+            # Cache is already row-aligned (one entry per dataset row)
+            X_img_all = X_cache
+            print(f"  CNN features (pre-aligned): {X_img_all.shape}")
         else:
-            X_img_train = X_images_all[idx_train]
-            X_img_val   = X_images_all[idx_val]
-            X_img_test  = X_images_all[idx_test]
-            print(f"  CNN feature shape: {X_images_all.shape}")
+            # Cache has one entry per image file — aggregate to one per row
+            from collections import defaultdict as _dd_cnn
+            key_to_idxs = _dd_cnn(list)
+            for fi, fn in enumerate(cache_filenames):
+                key_to_idxs[_img_key_cnn(fn)].append(fi)
+
+            id_col_cnn = "id" if "id" in df_filtered.columns else df_filtered.columns[0]
+            n_img_feat = X_cache.shape[1]
+            X_img_all = np.full((len(df_filtered), n_img_feat), np.nan, dtype=np.float32)
+            for row_idx, row_id in enumerate(df_filtered[id_col_cnn]):
+                idxs = key_to_idxs.get(_id_key_cnn(row_id), [])
+                if idxs:
+                    X_img_all[row_idx] = np.nanmean(X_cache[idxs], axis=0)
+
+            n_matched_cnn = int((~np.isnan(X_img_all).any(axis=1)).sum())
+            print(f"  CNN features: {n_img_feat} dims  |  "
+                  f"rows matched: {n_matched_cnn}/{len(df_filtered)}")
+
+            # Impute NaN rows with column means from matched rows
+            col_means = np.nanmean(X_img_all, axis=0)
+            nan_rows = np.isnan(X_img_all).any(axis=1)
+            X_img_all[nan_rows] = col_means
+
+        X_img_train = X_img_all[idx_train]
+        X_img_val   = X_img_all[idx_val]
+        X_img_test  = X_img_all[idx_test]
     else:
         if cache_path:
             print(f"  IMAGE_CACHE_PATH set but file not found: {cache_path}")
