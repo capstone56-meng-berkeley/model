@@ -35,6 +35,7 @@ class MissingDataConfig:
     numeric_fill_strategy: str = "mean"  # mean, median, zero
     categorical_fill_strategy: str = "mode"  # mode, unknown
     mid_range_strategy: str = "fill"  # drop_rows, fill, flag
+    mice_max_iter: int = 10             # IterativeImputer max iterations
 
 
 @dataclass
@@ -92,6 +93,9 @@ class Config:
 
     # Feature cache path
     feature_cache: str = "data/feature_cache.npz"
+
+    # Morphological feature cache path
+    morph_cache: str = "features/morph_features.npz"
 
     # Model output directory
     model_dir: str = "models"
@@ -181,7 +185,8 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
         row_fill_threshold=missing_data.get("row_fill_threshold", 0.10),
         numeric_fill_strategy=missing_data.get("numeric_fill_strategy", "mean"),
         categorical_fill_strategy=missing_data.get("categorical_fill_strategy", "mode"),
-        mid_range_strategy=missing_data.get("mid_range_strategy", "fill")
+        mid_range_strategy=missing_data.get("mid_range_strategy", "fill"),
+        mice_max_iter=missing_data.get("mice_max_iter", 10),
     )
 
     scaling_data = preproc_data.get("scaling", {})
@@ -225,6 +230,7 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
         local=local_config,
         temp_dir=config_data.get("temp_dir", "data/temp_images"),
         feature_cache=config_data.get("feature_cache", "data/feature_cache.npz"),
+        morph_cache=config_data.get("morph_cache", "features/morph_features.npz"),
         model_dir=config_data.get("model_dir", "models"),
         random_seed=config_data.get("random_seed", 42),
         img_size=config_data.get("img_size", 224),

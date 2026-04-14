@@ -28,7 +28,13 @@ class FeaturePreprocessor:
     - Encoding and scaling
     """
 
-    def __init__(self, config: PreprocessingConfig, column_types: Optional[Dict[str, str]] = None):
+    def __init__(
+        self,
+        config: PreprocessingConfig,
+        column_types: Optional[Dict[str, str]] = None,
+        mice_columns: Optional[List[str]] = None,
+        indicator_columns: Optional[List[str]] = None,
+    ):
         """
         Initialize the preprocessor.
 
@@ -38,9 +44,18 @@ class FeaturePreprocessor:
                           Bypasses auto-inference for named columns.
                           Valid types: 'numeric', 'categorical', 'text',
                           'unique_string', 'boolean', 'datetime'.
+            mice_columns: Columns to impute via MICE before per-column handlers
+                          run.  Values must be numeric.  Applied only when at
+                          least one value in these columns is missing.
+            indicator_columns: Columns for which a binary presence indicator
+                               ({col}_present) is prepended before zero-filling.
+                               Use for structurally-absent elements (Ti, Nb, V).
         """
         self.config = config
         self._column_type_overrides: Dict[str, str] = column_types or {}
+        self._mice_columns: List[str] = mice_columns or []
+        self._indicator_columns: List[str] = indicator_columns or []
+        self._mice_imputer = None   # MICEImputer instance, set during fit
         self._handlers: Dict[str, BaseTypeHandler] = {}
         self._dropped_columns: List[str] = []
         self._feature_names: List[str] = []
@@ -60,13 +75,70 @@ class FeaturePreprocessor:
         self._handlers = {}
         self._dropped_columns = []
         self._feature_names = []
+
+        # ------------------------------------------------------------------
+        # Pre-pass 1: binary presence indicators for structurally-absent cols
+        # Prepend {col}_present (1 = observed, 0 = absent) then zero-fill.
+        # Done before MICE so MICE never sees NaN in these columns.
+        # ------------------------------------------------------------------
+        df = df.copy()
+
+        # Snapshot missing ratios from the original data BEFORE any imputation.
+        # The drop-threshold check later uses this so that pre-passes don't
+        # mask columns that should be dropped.
+        original_missing = df.isna().mean()
+
+        for col in self._indicator_columns:
+            if col not in df.columns:
+                raise ValueError(
+                    f"indicator_columns entry '{col}' not found in DataFrame."
+                )
+            indicator_name = f"{col}_present"
+            df[indicator_name] = df[col].notna().astype(np.float64)
+            df[col] = df[col].fillna(0.0)
+            print(f"  {col}: added indicator '{indicator_name}', zero-filled")
+
+        # ------------------------------------------------------------------
+        # Pre-pass 2: MICE imputation across correlated numeric columns
+        # Must run after indicators so those columns are already complete.
+        # ------------------------------------------------------------------
+        if self._mice_columns:
+            bad = [c for c in self._mice_columns if c not in df.columns]
+            if bad:
+                raise ValueError(
+                    f"mice_columns refer to columns not in DataFrame: {bad}"
+                )
+            from .imputers import MICEImputer
+            self._mice_imputer = MICEImputer(
+                max_iter=self.config.missing_data.mice_max_iter,
+                random_state=42,
+            )
+            self._mice_imputer.fit_df(df, self._mice_columns)
+            df = self._mice_imputer.transform_df(df)
+            print(f"  MICE fitted on {self._mice_columns}")
+
         columns = df.columns.tolist()
+
+        # Drift check: every column named in the overrides must exist in the
+        # DataFrame. A mismatch means the dataset schema changed and the
+        # config.json column_types entry is stale.
+        missing_overrides = [
+            col for col in self._column_type_overrides if col not in columns
+        ]
+        if missing_overrides:
+            raise ValueError(
+                f"column_types override(s) refer to columns not present in the "
+                f"DataFrame: {missing_overrides}. Update config.json column_types "
+                f"to match the current dataset schema."
+            )
 
         for col in columns:
             series = df[col]
 
-            # Check missing ratio
-            missing_ratio = series.isna().sum() / len(series)
+            # Use pre-pass snapshot so drop threshold reflects original data.
+            # Indicator columns added by pre-pass 1 won't be in original_missing;
+            # they're always complete, so default to 0.
+            missing_ratio = float(original_missing.get(col, 0.0))
 
             # Drop column if too many missing
             if missing_ratio > self.config.missing_data.column_drop_threshold:
@@ -115,6 +187,34 @@ class FeaturePreprocessor:
 
         if len(self._handlers) == 0:
             return np.array([]).reshape(len(df), 0)
+
+        # Upfront check: surface all missing columns at once rather than
+        # failing mid-loop on the first absent one.
+        missing_cols = [
+            c for c in self._handlers
+            if c not in df.columns and c not in [f"{ic}_present" for ic in self._indicator_columns]
+        ]
+        if missing_cols:
+            raise ValueError(
+                f"Column(s) expected by the fitted preprocessor are missing from "
+                f"the DataFrame: {missing_cols}"
+            )
+
+        df = df.copy()
+
+        # Pre-pass 1: apply binary presence indicators + zero-fill
+        for col in self._indicator_columns:
+            if col not in df.columns:
+                raise ValueError(
+                    f"indicator_columns entry '{col}' not found in DataFrame."
+                )
+            indicator_name = f"{col}_present"
+            df[indicator_name] = df[col].notna().astype(np.float64)
+            df[col] = df[col].fillna(0.0)
+
+        # Pre-pass 2: apply MICE imputation
+        if self._mice_imputer is not None:
+            df = self._mice_imputer.transform_df(df)
 
         # Transform each column
         transformed_parts = []

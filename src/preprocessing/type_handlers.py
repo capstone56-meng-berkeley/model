@@ -1,5 +1,6 @@
 """Type handler implementations for different column data types."""
 
+import warnings
 from typing import List, Optional, Dict, Any
 
 import numpy as np
@@ -144,9 +145,13 @@ class CategoricalHandler(BaseTypeHandler):
 
         super().__init__(column_name, imputer, encoder, scaler, **kwargs)
 
+    @staticmethod
+    def _to_str_series(series: pd.Series) -> pd.Series:
+        """Convert to string while preserving NaN as NaN (not the string 'nan')."""
+        return series.where(series.isna(), series.astype(str))
+
     def fit(self, series: pd.Series) -> 'CategoricalHandler':
-        # Convert to string
-        str_series = series.astype(str).replace('nan', np.nan)
+        str_series = self._to_str_series(series)
 
         # Fit imputer
         if self.imputer:
@@ -167,8 +172,7 @@ class CategoricalHandler(BaseTypeHandler):
         if not self._fitted:
             raise RuntimeError("Handler not fitted. Call fit() first.")
 
-        # Convert to string
-        str_series = series.astype(str).replace('nan', np.nan)
+        str_series = self._to_str_series(series)
 
         # Impute
         imputed = self.imputer.transform(str_series) if self.imputer else str_series
@@ -261,7 +265,7 @@ class UniqueStringHandler(BaseTypeHandler):
         imputer: Optional[BaseImputer] = None,
         encoder: Optional[BaseEncoder] = None,
         scaler: Optional[BaseScaler] = None,
-        encode_method: str = "label",
+        encode_method: str = "skip",
         **kwargs
     ):
         """
@@ -269,7 +273,7 @@ class UniqueStringHandler(BaseTypeHandler):
 
         Args:
             column_name: Name of the column
-            encode_method: 'label' or 'skip'
+            encode_method: 'label' or 'skip' (default: 'skip' — IDs carry no ordinal signal)
         """
         if imputer is None:
             imputer = ImputerRegistry.create("unknown")
@@ -287,7 +291,7 @@ class UniqueStringHandler(BaseTypeHandler):
             self._fitted = True
             return self
 
-        str_series = series.astype(str).replace('nan', np.nan)
+        str_series = series.where(series.isna(), series.astype(str))
 
         if self.imputer:
             self.imputer.fit(str_series)
@@ -308,7 +312,7 @@ class UniqueStringHandler(BaseTypeHandler):
         if self._skip:
             return np.array([]).reshape(len(series), 0)
 
-        str_series = series.astype(str).replace('nan', np.nan)
+        str_series = series.where(series.isna(), series.astype(str))
 
         imputed = self.imputer.transform(str_series) if self.imputer else str_series
         encoded = self.encoder.transform(imputed) if self.encoder else np.array([])
@@ -346,8 +350,19 @@ class BooleanHandler(BaseTypeHandler):
 
         super().__init__(column_name, imputer, encoder, scaler, **kwargs)
 
+    def _map_bool(self, series: pd.Series) -> pd.Series:
+        mapped = series.map(self._BOOL_MAP)
+        unmapped = series.notna() & mapped.isna()
+        if unmapped.any():
+            bad_vals = series[unmapped].unique().tolist()
+            warnings.warn(
+                f"BooleanHandler '{self.column_name}': {unmapped.sum()} value(s) not in "
+                f"bool map will be treated as missing: {bad_vals}"
+            )
+        return mapped.astype(float)
+
     def fit(self, series: pd.Series) -> 'BooleanHandler':
-        bool_series = series.map(self._BOOL_MAP).astype(float)
+        bool_series = self._map_bool(series)
 
         if self.imputer:
             self.imputer.fit(bool_series)
@@ -365,7 +380,7 @@ class BooleanHandler(BaseTypeHandler):
         if not self._fitted:
             raise RuntimeError("Handler not fitted. Call fit() first.")
 
-        bool_series = series.map(self._BOOL_MAP).astype(float)
+        bool_series = self._map_bool(series)
 
         imputed = self.imputer.transform(bool_series) if self.imputer else bool_series
         encoded = self.encoder.transform(imputed) if self.encoder else imputed.values.reshape(-1, 1)
@@ -385,11 +400,18 @@ class DatetimeHandler(BaseTypeHandler):
         scaler=None,
         **kwargs
     ):
+        # Forward-fill is the most sensible default for a missing timestamp:
+        # use the surrounding temporal context rather than a sentinel value.
+        if imputer is None:
+            imputer = ImputerRegistry.create("forward_fill")
         if scaler is None:
             scaler = ScalerRegistry.create("none")
         super().__init__(column_name, imputer, encoder, scaler, **kwargs)
 
     def fit(self, series: pd.Series) -> 'DatetimeHandler':
+        dt = pd.to_datetime(series, errors='coerce')
+        if self.imputer:
+            self.imputer.fit(dt)
         self._feature_names = [
             f"{self.column_name}_year",
             f"{self.column_name}_month",
@@ -404,11 +426,13 @@ class DatetimeHandler(BaseTypeHandler):
             raise RuntimeError("Handler not fitted. Call fit() first.")
 
         dt = pd.to_datetime(series, errors='coerce')
+        if self.imputer:
+            dt = self.imputer.transform(dt)
         return np.column_stack([
-            dt.dt.year.fillna(0).astype(np.float64),
-            dt.dt.month.fillna(0).astype(np.float64),
-            dt.dt.day.fillna(0).astype(np.float64),
-            dt.dt.dayofweek.fillna(0).astype(np.float64),
+            dt.dt.year.astype(np.float64),
+            dt.dt.month.astype(np.float64),
+            dt.dt.day.astype(np.float64),
+            dt.dt.dayofweek.astype(np.float64),
         ])
 
 

@@ -25,7 +25,18 @@
   "features": {
     "feature_columns": [],
     "label_columns": [],
-    "column_types": {},
+    "column_types": {
+      "Num_Cycles":          "categorical",
+      "Cycle1_CRate (°C/s)": "categorical",
+      "Cycle1_Rtemp":        "categorical",
+      "Cycle1_Qtemp":        "categorical",
+      "Cycle2_Rtemp (C)":    "categorical",
+      "Cycle3_Rtemp":        "categorical",
+      "Cycle3_Qtemp":        "categorical",
+      "Cycle4_Qtemp":        "categorical",
+      "Heat treatment type": "categorical",
+      "ID":                  "unique_string"
+    },
     "preprocessing": {
       "missing_data": {
         "column_drop_threshold": 0.95,

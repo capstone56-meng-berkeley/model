@@ -1,0 +1,119 @@
+stage,config,mean_r2,std_r2
+preprocessing,dt=0.5 imp=mice sc=robust enc=label,0.36127950051532204,0.44285078105516873
+preprocessing,dt=0.5 imp=mice sc=none enc=label,0.3612672448726023,0.44284498547912354
+preprocessing,dt=0.5 imp=mice sc=minmax enc=label,0.3612620873347568,0.4428446921471039
+preprocessing,dt=0.5 imp=mice sc=standard enc=label,0.36118421025760755,0.44282347735364697
+preprocessing,dt=0.75 imp=mice sc=robust enc=label,0.3566305145918034,0.48488082637864355
+preprocessing,dt=0.75 imp=mice sc=minmax enc=label,0.35661552655968703,0.48490565081694564
+preprocessing,dt=0.75 imp=mice sc=none enc=label,0.356615468299838,0.48490564895130706
+preprocessing,dt=0.75 imp=mice sc=standard enc=label,0.35658529700451475,0.48489616024118787
+preprocessing,dt=0.75 imp=mean sc=robust enc=label,0.35034814173020323,0.5039274997010593
+preprocessing,dt=0.75 imp=mean sc=none enc=label,0.3503288908033977,0.5039549108568501
+preprocessing,dt=0.75 imp=mean sc=minmax enc=label,0.350325733188452,0.5039546465597632
+preprocessing,dt=0.75 imp=mean sc=standard enc=label,0.35028700305606814,0.5039366969515027
+preprocessing,dt=0.9 imp=mice sc=robust enc=onehot,0.34217229041079056,0.29651121887403037
+preprocessing,dt=0.9 imp=mice sc=minmax enc=onehot,0.3421722904107905,0.29651121887403
+preprocessing,dt=0.9 imp=mice sc=none enc=onehot,0.34217229041079045,0.29651121887403026
+preprocessing,dt=0.9 imp=mice sc=standard enc=onehot,0.34213348775173513,0.2965148191385847
+preprocessing,dt=0.5 imp=median sc=robust enc=label,0.33976617874852766,0.5036184595170602
+preprocessing,dt=0.5 imp=median sc=none enc=label,0.33975837341263365,0.5036148399332598
+preprocessing,dt=0.5 imp=median sc=standard enc=label,0.3397536230520389,0.5036185013922885
+preprocessing,dt=0.5 imp=median sc=minmax enc=label,0.33975330598196357,0.5036144005309262
+preprocessing,dt=0.5 imp=mean sc=robust enc=label,0.3366472542417939,0.45985787744240597
+preprocessing,dt=0.5 imp=mean sc=none enc=label,0.3366172525390362,0.45984081023564466
+preprocessing,dt=0.5 imp=mean sc=minmax enc=label,0.336613187957954,0.4598404107216593
+preprocessing,dt=0.5 imp=mean sc=standard enc=label,0.33656240316106123,0.4598287843681402
+preprocessing,dt=0.9 imp=mean sc=minmax enc=onehot,0.3323735811094236,0.3126028263952264
+preprocessing,dt=0.9 imp=mean sc=none enc=onehot,0.3323733811157677,0.31260284488811496
+preprocessing,dt=0.9 imp=mean sc=robust enc=onehot,0.33237338111576764,0.31260284488811496
+preprocessing,dt=0.9 imp=mean sc=standard enc=onehot,0.33235639136765094,0.3126018761198051
+preprocessing,dt=0.75 imp=median sc=robust enc=label,0.32803621859624876,0.5597530555191286
+preprocessing,dt=0.75 imp=median sc=none enc=label,0.3280321000699765,0.5597591317060965
+preprocessing,dt=0.75 imp=median sc=minmax enc=label,0.3280287315281293,0.5597588780680561
+preprocessing,dt=0.75 imp=median sc=standard enc=label,0.32797921947044906,0.5597394979395157
+preprocessing,dt=0.9 imp=mice sc=minmax enc=label,0.3244018580269866,0.43358484024913685
+preprocessing,dt=0.9 imp=mice sc=robust enc=label,0.3244009763605882,0.433585120712547
+preprocessing,dt=0.9 imp=mice sc=none enc=label,0.3243855915124599,0.4335853271523445
+preprocessing,dt=0.9 imp=mice sc=standard enc=label,0.32435186752820494,0.43359048220520213
+preprocessing,dt=0.9 imp=mean sc=none enc=label,0.32294507044529175,0.38704306187726994
+preprocessing,dt=0.9 imp=mean sc=minmax enc=label,0.32294431578400074,0.38704300988654633
+preprocessing,dt=0.9 imp=mean sc=standard enc=label,0.32235141608848733,0.3902695556723016
+preprocessing,dt=0.9 imp=mean sc=robust enc=label,0.322222512160418,0.3901974630682814
+preprocessing,dt=0.5 imp=mice sc=standard enc=onehot,0.3196571842915633,0.42911359603867166
+preprocessing,dt=0.5 imp=mice sc=robust enc=onehot,0.31951055601766737,0.4292312189387081
+preprocessing,dt=0.5 imp=mice sc=none enc=onehot,0.319485683607883,0.4292319174005665
+preprocessing,dt=0.5 imp=mice sc=minmax enc=onehot,0.31948455829378125,0.42923191990982756
+preprocessing,dt=0.5 imp=mean sc=robust enc=onehot,0.31413453243263517,0.47667697158068506
+preprocessing,dt=0.5 imp=mean sc=none enc=onehot,0.314131811104651,0.47667597107039666
+preprocessing,dt=0.5 imp=mean sc=minmax enc=onehot,0.31413010251865836,0.47667590746146704
+preprocessing,dt=0.5 imp=mean sc=standard enc=onehot,0.3141182142578521,0.47667349766476946
+preprocessing,dt=0.9 imp=median sc=minmax enc=label,0.3089264330174316,0.38786134406147865
+preprocessing,dt=0.9 imp=median sc=robust enc=label,0.3089141053983954,0.38786070068169576
+preprocessing,dt=0.9 imp=median sc=none enc=label,0.30891410539839526,0.387860700681696
+preprocessing,dt=0.9 imp=median sc=standard enc=label,0.3088469360995332,0.3878676266060597
+preprocessing,dt=0.95 imp=mice sc=robust enc=onehot,0.30379047514034097,0.479805297714479
+preprocessing,dt=0.95 imp=mice sc=minmax enc=onehot,0.30378832909170184,0.47980526273792334
+preprocessing,dt=0.95 imp=mice sc=standard enc=onehot,0.3037262221179784,0.47981173626263623
+preprocessing,dt=0.75 imp=mice sc=robust enc=onehot,0.2986262307453611,0.5777008683460372
+preprocessing,dt=0.75 imp=mice sc=none enc=onehot,0.2985967787360741,0.5776991040272828
+preprocessing,dt=0.75 imp=mice sc=minmax enc=onehot,0.2985944933908246,0.5776989686303641
+preprocessing,dt=0.75 imp=mice sc=standard enc=onehot,0.29853829723960335,0.5776756061597876
+preprocessing,dt=0.95 imp=mice sc=none enc=onehot,0.29847204947095735,0.48125821642387906
+preprocessing,dt=0.95 imp=mean sc=none enc=onehot,0.2961048545437769,0.4903500755346301
+preprocessing,dt=0.75 imp=mean sc=robust enc=onehot,0.2933717583384768,0.5897249964749293
+preprocessing,dt=0.75 imp=mean sc=none enc=onehot,0.2933623272093841,0.5897204170863457
+preprocessing,dt=0.75 imp=mean sc=minmax enc=onehot,0.2933623272093841,0.5897204170863456
+preprocessing,dt=0.75 imp=mean sc=standard enc=onehot,0.2933246903919942,0.5897090330816016
+preprocessing,dt=0.95 imp=mean sc=robust enc=onehot,0.2921704439069095,0.4893143335685366
+preprocessing,dt=0.95 imp=mean sc=minmax enc=onehot,0.2921013048106603,0.48931430307337564
+preprocessing,dt=0.95 imp=mean sc=standard enc=onehot,0.2920235129323283,0.4893155983674259
+preprocessing,dt=0.9 imp=median sc=none enc=onehot,0.28995088199896996,0.4417014709341857
+preprocessing,dt=0.9 imp=median sc=minmax enc=onehot,0.2899508819989699,0.44170147093418555
+preprocessing,dt=0.9 imp=median sc=robust enc=onehot,0.2899508819989698,0.44170147093418616
+preprocessing,dt=0.9 imp=median sc=standard enc=onehot,0.28990463211657946,0.4417000922023393
+preprocessing,dt=0.95 imp=mice sc=robust enc=label,0.28730206389127455,0.5441453359323668
+preprocessing,dt=0.95 imp=mice sc=minmax enc=label,0.28730206389127444,0.5441453359323668
+preprocessing,dt=0.95 imp=mice sc=standard enc=label,0.2872155903131036,0.5441269196524816
+preprocessing,dt=0.95 imp=mice sc=none enc=label,0.2838308983758222,0.5434044536753406
+preprocessing,dt=0.95 imp=mean sc=robust enc=label,0.283392202848297,0.5109856612745711
+preprocessing,dt=0.95 imp=mean sc=minmax enc=label,0.2833922028482968,0.5109856612745713
+preprocessing,dt=0.95 imp=mean sc=standard enc=label,0.28337432346017843,0.5109896143444811
+preprocessing,dt=0.75 imp=median sc=none enc=onehot,0.2808164439033944,0.5923340482522907
+preprocessing,dt=0.75 imp=median sc=minmax enc=onehot,0.2808164439033942,0.592334048252291
+preprocessing,dt=0.75 imp=median sc=robust enc=onehot,0.280816443903394,0.5923340482522914
+preprocessing,dt=0.75 imp=median sc=standard enc=onehot,0.2807723976376188,0.5923221381252438
+preprocessing,dt=0.5 imp=median sc=standard enc=onehot,0.28003423327452776,0.5820625740917975
+preprocessing,dt=0.5 imp=median sc=robust enc=onehot,0.27987496256993655,0.5821287750481976
+preprocessing,dt=0.5 imp=median sc=none enc=onehot,0.27966016617815337,0.582186259987947
+preprocessing,dt=0.5 imp=median sc=minmax enc=onehot,0.2796571770375119,0.582186079403144
+preprocessing,dt=0.95 imp=mean sc=none enc=label,0.2792372790254953,0.51269841411449
+preprocessing,dt=0.95 imp=median sc=robust enc=onehot,0.27191210604342003,0.4952273917493987
+preprocessing,dt=0.95 imp=median sc=standard enc=onehot,0.27178813498757237,0.49523709455985343
+preprocessing,dt=0.95 imp=median sc=none enc=onehot,0.27178502288065143,0.4952179758625311
+preprocessing,dt=0.95 imp=median sc=minmax enc=onehot,0.2717838200208006,0.49521786606862783
+preprocessing,dt=0.95 imp=median sc=none enc=label,0.2663220313933611,0.5242696891493267
+preprocessing,dt=0.95 imp=median sc=minmax enc=label,0.26632203139336097,0.524269689149327
+preprocessing,dt=0.95 imp=median sc=robust enc=label,0.26632203139336086,0.524269689149327
+preprocessing,dt=0.95 imp=median sc=standard enc=label,0.2662986822550027,0.524277141981589
+regressor,ABR,0.8004818726893993,0.19107225385007767
+regressor,GBR,0.7884153081489049,0.16723400895073065
+regressor,ExtraTrees,0.5813357056335569,0.22464563622676004
+regressor,RF,0.47926183850617926,0.2865116581746597
+regressor,SVR_linear,0.40691805304210754,0.42621449539522255
+regressor,KNN_3,0.3912722290111949,0.7377857214497556
+regressor,SVR_rbf,0.1981625722240865,0.4307487308477316
+regressor,KNN_5,-0.035858213676790304,1.1883742038718648
+backbone,resnet18,0.8154607347694774,0.1455802927012957
+backbone,vgg16,0.81382977673139,0.15269973019855304
+backbone,efficientnet_b4,0.8092003396653805,0.17034224418866709
+backbone,resnet101,0.8020193597171964,0.1590327562424379
+backbone,mobilenet_v3,0.801580671146193,0.15683355342755192
+backbone,tabular_only,0.8004818726893993,0.19107225385007767
+backbone,vgg19,0.7985829487195707,0.17035729204312977
+backbone,dinov2_vitl14,0.7985595329948922,0.1649900379971525
+backbone,densenet121,0.7966830877693447,0.17711885551184522
+backbone,convnext_tiny,0.7795261724566136,0.23483069778245275
+backbone,dinov2_vitb14,0.7759848127955756,0.23834833663044142
+backbone,efficientnet_b0,0.7759650613009349,0.2340833204141412
+backbone,resnet50,0.775758437783787,0.21535877224475802
+backbone,dinov2_vits14,0.7617319196952606,0.24222886885196884

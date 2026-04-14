@@ -1,6 +1,6 @@
 """Imputer implementations for missing value handling."""
 
-from typing import Any
+from typing import Any, List
 
 import pandas as pd
 
@@ -132,6 +132,82 @@ class InterpolateImputer(BaseImputer):
     def transform(self, series: pd.Series) -> pd.Series:
         self._check_fitted()
         return series.interpolate(method=self.method)
+
+
+@ImputerRegistry.register("mice")
+class MICEImputer(BaseImputer):
+    """
+    Multiple Imputation by Chained Equations (MICE).
+
+    Wraps sklearn's IterativeImputer. Unlike other imputers this operates on
+    a full numeric DataFrame, not a single Series.  Direct per-column use via
+    fit(series)/transform(series) raises NotImplementedError — wire it through
+    FeaturePreprocessor(mice_columns=[...]) which calls fit_df/transform_df.
+    """
+
+    def __init__(self, max_iter: int = 10, random_state: int = 42, **kwargs):
+        super().__init__(**kwargs)
+        self.max_iter = max_iter
+        self.random_state = random_state
+        self._imputer = None
+        self._columns: List[str] = []
+
+    # ------------------------------------------------------------------
+    # Per-series API — intentionally unsupported
+    # ------------------------------------------------------------------
+    def fit(self, series: pd.Series) -> 'MICEImputer':
+        raise NotImplementedError(
+            "MICEImputer requires the full DataFrame. "
+            "Use FeaturePreprocessor(mice_columns=[...]) instead."
+        )
+
+    def transform(self, series: pd.Series) -> pd.Series:
+        raise NotImplementedError(
+            "MICEImputer requires the full DataFrame. "
+            "Use FeaturePreprocessor(mice_columns=[...]) instead."
+        )
+
+    # ------------------------------------------------------------------
+    # DataFrame API — called by FeaturePreprocessor
+    # ------------------------------------------------------------------
+    def fit_df(self, df: pd.DataFrame, columns: List[str]) -> 'MICEImputer':
+        """
+        Fit the iterative imputer on the given columns of df.
+
+        Args:
+            df: Full feature DataFrame (only numeric columns used)
+            columns: Columns to impute via MICE
+        """
+        from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+        from sklearn.impute import IterativeImputer
+
+        self._columns = columns
+        numeric_df = df[columns].apply(pd.to_numeric, errors='coerce')
+        self._imputer = IterativeImputer(
+            max_iter=self.max_iter,
+            random_state=self.random_state,
+            skip_complete=True,
+        )
+        self._imputer.fit(numeric_df)
+        self._fitted = True
+        return self
+
+    def transform_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Impute missing values in the MICE columns and return an updated DataFrame.
+
+        Args:
+            df: DataFrame containing at least self._columns
+
+        Returns:
+            Copy of df with MICE columns filled
+        """
+        self._check_fitted()
+        numeric_df = df[self._columns].apply(pd.to_numeric, errors='coerce')
+        imputed = self._imputer.transform(numeric_df)
+        df = df.copy()
+        df[self._columns] = imputed
+        return df
 
 
 def get_imputer(strategy: str, **kwargs) -> BaseImputer:

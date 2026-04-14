@@ -43,6 +43,9 @@ from src.model_trainer import (
 )
 from src.config import EncodingConfig, MissingDataConfig, PreprocessingConfig, ScalingConfig
 from src.preprocessing import FeaturePreprocessor
+from src.column_sanitizer import sanitize_dataframe, sanitize_column
+from src.extraction.morphology import MorphologicalExtractor
+from src.extraction.morphology_config import MorphologyConfig
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +56,7 @@ def parse_env():
     """Read all configuration from environment variables with defaults."""
     target_str = os.getenv(
         "TARGET_COLUMNS",
-        "Cycle1_HoldingTemp (C),Cycle1_HoldingTime (min)"
+        "cycle1_holdingtemp_degc,cycle1_holdingtime_min"
     )
     backbone_str = os.getenv("BACKBONES", "resnet50,vgg16")
     model_str = os.getenv("REGRESSION_MODELS", "RF,GBR,ABR")
@@ -75,6 +78,10 @@ def parse_env():
         # PCA components for image features (0 = disabled).
         # Recommended: 20–50 when n_samples < 200.
         "pca_components": int(os.getenv("PCA_COMPONENTS", "0")),
+        # Path to morphological feature cache (.npz). Empty = use default.
+        "morph_cache_path": os.getenv("MORPH_CACHE_PATH", "features/morph_features.npz"),
+        # Directory containing downloaded images for morphological extraction.
+        "images_dir": os.getenv("IMAGES_DIR", os.path.join("data", "temp_images")),
     }
 
 
@@ -92,9 +99,15 @@ def find_column(df, pattern):
 
 
 CHEMICAL_COLUMNS = [
-    "C (wt.%)", "Mn (wt.%)", "Si", "Cr (wt.%)", "P", "S",
-    "Mo", "Cu", "Ni", "Al", "Nb", "V", "Ti", "Fe",
+    "c", "mn", "si", "cr", "p", "s",
+    "mo", "cu", "ni", "al", "nb", "v", "ti", "fe",
 ]
+
+# MICE imputation: correlated alloy elements with random missingness
+MICE_COLUMNS = ["cr", "mo", "s", "ni", "al"]
+
+# Binary presence indicators: structural missingness (element not in alloy)
+INDICATOR_COLUMNS = ["ti", "nb", "v"]
 
 
 def plot_residuals(Y_true, Y_pred, target_columns, save_path):
@@ -143,8 +156,12 @@ def load_data(env):
         _, labels_df = loader.load_data()
         df_raw = labels_df
 
+    # Sanitize all column names to [a-z0-9_] immediately after loading.
+    # All downstream code uses sanitized names exclusively.
+    df_raw = sanitize_dataframe(df_raw)
+
     # Filter to rows with actual data
-    df = df_raw[df_raw["C (wt.%)"].notna()].copy().reset_index(drop=True)
+    df = df_raw[df_raw["c"].notna()].copy().reset_index(drop=True)
     print(f"  Usable samples: {len(df)} (from {len(df_raw)} raw rows)")
     return df
 
@@ -166,25 +183,27 @@ def main():
     print("=" * 60)
 
     # -- Print config -------------------------------------------------------
-    print("\n[1/8] Configuration")
+    print("\n[1/9] Configuration")  # steps: config, load, targets, split, tabular, morph, cnn, combine, train
     for k, v in env.items():
         print(f"  {k}: {v}")
 
     # -- Load data ----------------------------------------------------------
-    print("\n[2/8] Loading data...")
+    print("\n[2/9] Loading data...")
     df = load_data(env)
 
     # -- Resolve target columns ---------------------------------------------
-    print("\n[3/8] Resolving target columns...")
+    # Columns are already sanitized by load_data(); sanitize the env var
+    # values too so raw names passed via TARGET_COLUMNS env var still work.
+    print("\n[3/9] Resolving target columns...")
     resolved_targets = []
     for pattern in env["target_columns"]:
-        actual = find_column(df, pattern)
-        if actual is None:
-            print(f"  ERROR: target column '{pattern}' not found in dataset")
+        col = sanitize_column(pattern)
+        if col not in df.columns:
+            print(f"  ERROR: target column '{col}' not found in dataset")
             sys.exit(1)
-        resolved_targets.append(actual)
-        nn = df[actual].notna().sum()
-        print(f"  {pattern} -> {repr(actual)}  ({nn}/{len(df)} available)")
+        resolved_targets.append(col)
+        nn = df[col].notna().sum()
+        print(f"  {pattern} -> {repr(col)}  ({nn}/{len(df)} available)")
 
     # Filter to samples with all targets non-null
     mask = pd.Series(True, index=df.index)
@@ -196,8 +215,27 @@ def main():
     Y = df_filtered[resolved_targets].values.astype(np.float64)
     target_names = [re.sub(r"\s+", " ", c).strip() for c in env["target_columns"]]
 
+    # -- Split rows BEFORE any preprocessing (prevents MICE/imputer leakage) --
+    print("\n[4/9] Splitting data...")
+    from sklearn.model_selection import train_test_split as _tts
+
+    idx = np.arange(len(df_filtered))
+    idx_trainval, idx_test = _tts(
+        idx, test_size=env["test_size"], random_state=env["random_seed"]
+    )
+    idx_train, idx_val = _tts(
+        idx_trainval, test_size=env["val_size"], random_state=env["random_seed"]
+    )
+    df_train = df_filtered.iloc[idx_train].reset_index(drop=True)
+    df_val   = df_filtered.iloc[idx_val].reset_index(drop=True)
+    df_test  = df_filtered.iloc[idx_test].reset_index(drop=True)
+    Y_train  = Y[idx_train]
+    Y_val    = Y[idx_val]
+    Y_test   = Y[idx_test]
+    print(f"  Split: train={len(df_train)}, val={len(df_val)}, test={len(df_test)}")
+
     # -- Tabular features ---------------------------------------------------
-    print("\n[4/8] Preprocessing tabular features...")
+    print("\n[5/9] Preprocessing tabular features...")
     feature_cols = [c for c in CHEMICAL_COLUMNS if c in df_filtered.columns]
     print(f"  Chemical input features: {len(feature_cols)}")
 
@@ -212,68 +250,172 @@ def main():
         encoding=EncodingConfig(categorical="onehot", max_categories=50),
     )
 
-    preprocessor = FeaturePreprocessor(preproc_config)
-    X_tabular = preprocessor.fit_transform(df_filtered[feature_cols].copy())
-    print(f"  Tabular features after preprocessing: {X_tabular.shape[1]}")
+    mice_cols = [c for c in MICE_COLUMNS if c in feature_cols]
+    indicator_cols = [c for c in INDICATOR_COLUMNS if c in feature_cols]
 
-    # -- Image features -----------------------------------------------------
-    print("\n[5/8] Image features...")
+    preprocessor = FeaturePreprocessor(
+        preproc_config,
+        mice_columns=mice_cols,
+        indicator_columns=indicator_cols,
+    )
+    # Fit only on training rows — val/test use transform() to avoid leakage
+    X_tab_train = preprocessor.fit_transform(df_train[feature_cols].copy())
+    X_tab_val   = preprocessor.transform(df_val[feature_cols].copy())
+    X_tab_test  = preprocessor.transform(df_test[feature_cols].copy())
+    print(f"  Tabular features after preprocessing: {X_tab_train.shape[1]}")
+
+    # -- Morphological features ---------------------------------------------
+    print("\n[6/9] Morphological features...")
+
+    X_morph_train = X_morph_val = X_morph_test = None
+    morph_feature_names = []
+
+    images_dir = env.get("images_dir", os.path.join("data", "temp_images"))
+    _F_RE_M = re.compile(r'_F_\d+\.[a-z]+$', re.IGNORECASE)
+
+    def _img_key_m(path):
+        return _F_RE_M.sub('', os.path.basename(path)).lower()
+
+    def _id_key_m(row_id):
+        return str(row_id).strip().lower().replace('-', '_').replace(' ', '_')
+
+    import glob as _glob
+    from collections import defaultdict as _defaultdict
+
+    all_imgs_m = sorted(
+        _glob.glob(os.path.join(images_dir, '*.jpg')) +
+        _glob.glob(os.path.join(images_dir, '*.png'))
+    )
+
+    if not all_imgs_m:
+        print(f"  No images found in {images_dir} — skipping morphological features")
+    else:
+        key_to_paths_m = _defaultdict(list)
+        for p in all_imgs_m:
+            key_to_paths_m[_img_key_m(p)].append(p)
+
+        morph_cfg = MorphologyConfig(cache_path=env["morph_cache_path"])
+        morph_extractor = MorphologicalExtractor(morph_cfg)
+        morph_feature_names = morph_extractor.get_feature_names()
+        n_feats_m = len(morph_feature_names)
+
+        cache_m = env["morph_cache_path"]
+        if cache_m and os.path.exists(cache_m):
+            print(f"  Loading morphological features from cache: {cache_m}")
+            _cd = np.load(cache_m, allow_pickle=True)
+            X_morph_all = _cd["X"].astype(np.float64)
+        else:
+            X_morph_all = np.full((len(df_filtered), n_feats_m), np.nan, dtype=np.float64)
+            id_col = "id" if "id" in df_filtered.columns else df_filtered.columns[0]
+            for row_idx, row_id in enumerate(df_filtered[id_col]):
+                paths = key_to_paths_m.get(_id_key_m(row_id), [])
+                if not paths:
+                    continue
+                feats = np.vstack([morph_extractor.extract_single(p) for p in paths])
+                X_morph_all[row_idx] = np.nanmean(feats, axis=0)
+            if cache_m:
+                ensure_dir(os.path.dirname(cache_m) or ".")
+                np.savez(cache_m, X=X_morph_all)
+                print(f"  Cached morphological features to {cache_m}")
+
+        df_morph_all = pd.DataFrame(X_morph_all, columns=morph_feature_names)
+        df_morph_train = df_morph_all.iloc[idx_train].reset_index(drop=True)
+        df_morph_val   = df_morph_all.iloc[idx_val].reset_index(drop=True)
+        df_morph_test  = df_morph_all.iloc[idx_test].reset_index(drop=True)
+
+        morph_preproc_config = PreprocessingConfig(
+            missing_data=MissingDataConfig(
+                column_drop_threshold=0.95,
+                row_fill_threshold=1.0,
+                numeric_fill_strategy="median",
+                categorical_fill_strategy="mode",
+            ),
+            scaling=ScalingConfig(method=env["scaling_method"], enabled=True),
+            encoding=EncodingConfig(categorical="onehot", max_categories=50),
+        )
+        morph_preprocessor = FeaturePreprocessor(morph_preproc_config)
+        X_morph_train = morph_preprocessor.fit_transform(df_morph_train)
+        X_morph_val   = morph_preprocessor.transform(df_morph_val)
+        X_morph_test  = morph_preprocessor.transform(df_morph_test)
+        n_matched_m = int((~np.isnan(X_morph_all).any(axis=1)).sum())
+        print(f"  Rows matched to images: {n_matched_m}/{len(df_filtered)}")
+        print(f"  Morphological features: {X_morph_train.shape[1]}")
+
+    # -- CNN image features -------------------------------------------------
+    print("\n[7/9] CNN image features...")
 
     cache_path = env["image_cache_path"]
+    X_img_train = X_img_val = X_img_test = None
     if cache_path and os.path.exists(cache_path):
         print(f"  Loading image features from cache: {cache_path}")
         data = np.load(cache_path, allow_pickle=True)
-        X_images = data["X"].astype(np.float32)
-        # Align rows: cache may cover more samples than df_filtered
-        if X_images.shape[0] != len(df_filtered):
-            print(f"  Warning: cache has {X_images.shape[0]} rows, "
-                  f"filtered dataset has {len(df_filtered)} — using tabular-only")
-            X_images = None
+        X_images_all = data["X"].astype(np.float32)
+        if X_images_all.shape[0] != len(df_filtered):
+            print(f"  Warning: cache has {X_images_all.shape[0]} rows, "
+                  f"filtered dataset has {len(df_filtered)} — skipping CNN features")
         else:
-            print(f"  Image features shape: {X_images.shape}")
+            X_img_train = X_images_all[idx_train]
+            X_img_val   = X_images_all[idx_val]
+            X_img_test  = X_images_all[idx_test]
+            print(f"  CNN feature shape: {X_images_all.shape}")
     else:
         if cache_path:
             print(f"  IMAGE_CACHE_PATH set but file not found: {cache_path}")
-        print("  No image cache available — training on tabular features only")
-        X_images = None
+        print("  No CNN image cache available — continuing without CNN features")
 
     # -- Combine features ---------------------------------------------------
-    print("\n[6/8] Combining features...")
-    if X_images is not None:
-        X_combined = np.concatenate([X_images, X_tabular], axis=1)
-        print(f"  Combined: {X_images.shape[1]} (image) + {X_tabular.shape[1]} (tabular) "
-              f"= {X_combined.shape[1]}")
-        image_dim = int(X_images.shape[1])
+    print("\n[8/9] Combining features...")
+
+    parts_train, parts_val, parts_test = [], [], []
+    dim_log = []
+
+    if X_img_train is not None:
+        parts_train.append(X_img_train)
+        parts_val.append(X_img_val)
+        parts_test.append(X_img_test)
+        image_dim = int(X_img_train.shape[1])
+        dim_log.append(f"{image_dim} (CNN image)")
     else:
-        X_combined = X_tabular
-        print(f"  Tabular only: {X_tabular.shape[1]} features")
         image_dim = 0
+
+    if X_morph_train is not None:
+        parts_train.append(X_morph_train)
+        parts_val.append(X_morph_val)
+        parts_test.append(X_morph_test)
+        dim_log.append(f"{X_morph_train.shape[1]} (morphological)")
+
+    parts_train.append(X_tab_train)
+    parts_val.append(X_tab_val)
+    parts_test.append(X_tab_test)
+    dim_log.append(f"{X_tab_train.shape[1]} (tabular)")
+
+    X_train = np.concatenate(parts_train, axis=1)
+    X_val   = np.concatenate(parts_val,   axis=1)
+    X_test  = np.concatenate(parts_test,  axis=1)
+
+    print(f"  Combined: {' + '.join(dim_log)} = {X_train.shape[1]} total")
 
     # -- PCA dimensionality reduction (optional) ----------------------------
     pca = None
     n_pca = env["pca_components"]
-    if n_pca > 0 and X_combined.shape[1] > n_pca:
-        n_pca = min(n_pca, X_combined.shape[0] - 1)  # can't exceed n_samples - 1
-        print(f"\n  Applying PCA: {X_combined.shape[1]} → {n_pca} components")
+    if n_pca > 0 and X_train.shape[1] > n_pca:
+        n_pca = min(n_pca, X_train.shape[0] - 1)  # can't exceed n_samples - 1
+        print(f"\n  Applying PCA: {X_train.shape[1]} → {n_pca} components")
         pca = PCA(n_components=n_pca, random_state=env["random_seed"])
-        X_combined = pca.fit_transform(X_combined)
+        X_train = pca.fit_transform(X_train)   # fit on train only
+        X_val   = pca.transform(X_val)
+        X_test  = pca.transform(X_test)
         explained = pca.explained_variance_ratio_.sum()
         print(f"  Explained variance: {explained:.1%}")
 
     # -- Train --------------------------------------------------------------
-    print("\n[7/8] Training models...")
+    print("\n[9/9] Training models...")
     config = Config(random_seed=env["random_seed"], model_dir=run_dir)
     trainer = ModelTrainer(
         config,
         n_estimators=env["n_estimators"],
         learning_rate=env["learning_rate"],
         model_selection=env["regression_models"],
-    )
-
-    X_train, X_val, X_test, Y_train, Y_val, Y_test = trainer.split_data(
-        X_combined, Y,
-        test_size=env["test_size"],
-        val_size=env["val_size"],
     )
 
     start_time = time.time()
@@ -285,7 +427,7 @@ def main():
     print(f"  Training time: {training_time:.1f}s")
 
     # -- Evaluate all splits ------------------------------------------------
-    print("\n[8/8] Evaluating & generating artifacts...")
+    print("\nEvaluating & generating artifacts...")
     all_results = {}
     for name, model in trainer.fitted_models.items():
         all_results[name] = {}
@@ -378,9 +520,10 @@ def main():
             "image_cache": env["image_cache_path"] or None,
             "pca_components": n_pca if pca is not None else None,
             "feature_dimensions": {
-                "tabular": int(X_tabular.shape[1]),
+                "tabular": int(X_tab_train.shape[1]),
+                "morphological": int(X_morph_train.shape[1]) if X_morph_train is not None else 0,
                 "image": image_dim,
-                "total": int(X_combined.shape[1]),
+                "total": int(X_train.shape[1]),
             },
             "samples": {
                 "total": int(len(df_filtered)),
