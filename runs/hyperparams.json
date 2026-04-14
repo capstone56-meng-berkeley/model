@@ -1,0 +1,53 @@
+{
+  "dp_steel": {
+    "saved_at": "2026-04-14 12:12:44",
+    "git_commit": "65da734",
+    "n_trials": 100,
+    "cv_protocol": "RepeatedKFold(n_splits=5, n_repeats=5) search / (n_repeats=10) eval",
+    "feature_matrix_shape": [
+      54,
+      17
+    ],
+    "best_model": "GBR",
+    "models": {
+      "ABR": {
+        "best_cv_r2": 0.8769650517046667,
+        "tuned_cv_r2": 0.8661333516966201,
+        "tuned_std": 0.2039329286417189,
+        "delta": 0.06565147900722079,
+        "params": {
+          "max_depth": 5,
+          "n_estimators": 387,
+          "learning_rate": 0.2286366118942622
+        }
+      },
+      "GBR": {
+        "best_cv_r2": 0.92481129476035,
+        "tuned_cv_r2": 0.9055770153214447,
+        "tuned_std": 0.15490685282450417,
+        "delta": 0.11716170717253982,
+        "params": {
+          "n_estimators": 469,
+          "learning_rate": 0.05126768805453102,
+          "max_depth": 2,
+          "subsample": 0.5173680426120633,
+          "min_samples_leaf": 2,
+          "max_features": null
+        }
+      },
+      "ExtraTrees": {
+        "best_cv_r2": 0.8333444737787056,
+        "tuned_cv_r2": 0.8100697179617344,
+        "tuned_std": 0.20345978477329485,
+        "delta": 0.2287340123281778,
+        "params": {
+          "n_estimators": 128,
+          "max_depth": 17,
+          "min_samples_leaf": 1,
+          "max_features": 0.5,
+          "bootstrap": false
+        }
+      }
+    }
+  }
+}
