@@ -49,6 +49,10 @@ class BaseImputer(ABC):
         """Fit and transform in one step."""
         return self.fit(series).transform(series)
 
+    def _check_fitted(self) -> None:
+        if not self._fitted:
+            raise RuntimeError("Imputer not fitted. Call fit() first.")
+
 
 class BaseEncoder(ABC):
     """

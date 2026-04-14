@@ -1,11 +1,11 @@
 """Feature preprocessing pipeline orchestrator."""
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+from ..config import MissingDataConfig, ScalingConfig, EncodingConfig, PreprocessingConfig
 from .base import BaseTypeHandler
 from .type_handlers import TypeHandlerRegistry, get_type_handler
 from .type_handlers import (
@@ -18,41 +18,6 @@ from .type_handlers import (
 )
 
 
-@dataclass
-class MissingDataConfig:
-    """Configuration for missing data handling."""
-    column_drop_threshold: float = 0.95  # Drop column if >95% missing
-    row_fill_threshold: float = 0.10     # Fill if <10% missing
-    numeric_fill_strategy: str = "mean"  # mean, median, zero
-    categorical_fill_strategy: str = "mode"  # mode, unknown
-    mid_range_strategy: str = "fill"  # drop_rows, fill, flag
-
-
-@dataclass
-class ScalingConfig:
-    """Configuration for feature scaling."""
-    method: str = "standard"  # standard, minmax, robust, none
-    enabled: bool = True
-
-
-@dataclass
-class EncodingConfig:
-    """Configuration for feature encoding."""
-    categorical: str = "onehot"  # onehot, label
-    text: str = "tfidf"  # tfidf, skip
-    unique_string: str = "label"  # label, skip
-    max_categories: int = 50
-
-
-@dataclass
-class PreprocessingConfig:
-    """Full preprocessing configuration."""
-    # column_types: Dict[str, str] = field(default_factory=dict)
-    missing_data: MissingDataConfig = field(default_factory=MissingDataConfig)
-    scaling: ScalingConfig = field(default_factory=ScalingConfig)
-    encoding: EncodingConfig = field(default_factory=EncodingConfig)
-
-
 class FeaturePreprocessor:
     """
     Extensible preprocessing pipeline for tabular features.
@@ -63,14 +28,19 @@ class FeaturePreprocessor:
     - Encoding and scaling
     """
 
-    def __init__(self, config: PreprocessingConfig):
+    def __init__(self, config: PreprocessingConfig, column_types: Optional[Dict[str, str]] = None):
         """
         Initialize the preprocessor.
 
         Args:
             config: Preprocessing configuration
+            column_types: Optional dict of {column_name: type_string} overrides.
+                          Bypasses auto-inference for named columns.
+                          Valid types: 'numeric', 'categorical', 'text',
+                          'unique_string', 'boolean', 'datetime'.
         """
         self.config = config
+        self._column_type_overrides: Dict[str, str] = column_types or {}
         self._handlers: Dict[str, BaseTypeHandler] = {}
         self._dropped_columns: List[str] = []
         self._feature_names: List[str] = []
@@ -93,10 +63,6 @@ class FeaturePreprocessor:
         columns = df.columns.tolist()
 
         for col in columns:
-            if col not in df.columns:
-                print(f"  Warning: Column '{col}' not found in DataFrame, skipping")
-                continue
-
             series = df[col]
 
             # Check missing ratio
@@ -109,9 +75,13 @@ class FeaturePreprocessor:
                 self._dropped_columns.append(col)
                 continue
 
-            # Infer column type from dtype
-            col_type = self._infer_column_type(series)
-            print(f"  {col}: {series.dtype} → {col_type}")
+            # Resolve column type: explicit override takes priority over auto-inference
+            if col in self._column_type_overrides:
+                col_type = self._column_type_overrides[col]
+                print(f"  {col}: {series.dtype} → {col_type} (override)")
+            else:
+                col_type = self._infer_column_type(series)
+                print(f"  {col}: {series.dtype} → {col_type}")
 
             # Build handler with appropriate config
             handler = self._create_handler(col, col_type, missing_ratio)
@@ -210,14 +180,15 @@ class FeaturePreprocessor:
         Returns:
             Inferred type constant (TYPE_CATEGORICAL, TYPE_TEXT, or TYPE_UNIQUE_STRING)
         """
+        non_null = series.dropna()
         n_unique = series.nunique()
-        n_total = len(series.dropna())
+        n_total = len(non_null)
 
         if n_total == 0:
             return TYPE_CATEGORICAL
 
         unique_ratio = n_unique / n_total
-        avg_length = series.dropna().astype(str).str.len().mean()
+        avg_length = non_null.astype(str).str.len().mean()
 
         # High uniqueness (>90% unique values)
         if unique_ratio > 0.9:
@@ -320,6 +291,6 @@ def preprocess_features(
         config = PreprocessingConfig()
 
     preprocessor = FeaturePreprocessor(config)
-    X = preprocessor.fit_transform(df, feature_columns)
+    X = preprocessor.fit_transform(df[feature_columns])
 
     return X, preprocessor

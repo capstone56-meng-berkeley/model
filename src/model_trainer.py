@@ -46,32 +46,43 @@ def build_ensemble_models(
     """
     all_models = {}
 
-    # Random Forest (supports native multi-output)
+    # Random Forest (supports native multi-output).
+    # max_features="sqrt" and min_samples_leaf=3 reduce variance on small datasets.
     rf = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
         ("reg", RandomForestRegressor(
             n_estimators=n_estimators,
             max_depth=None,
+            max_features="sqrt",
+            min_samples_leaf=3,
             random_state=random_seed,
             n_jobs=-1
         ))
     ])
     all_models["RF"] = rf
 
-    # Gradient Boosting (single output only)
+    # Gradient Boosting (single output only).
+    # max_depth=3, subsample=0.8, and min_samples_leaf=5 prevent memorisation
+    # of the small training set.
     gbr = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
         ("reg", GradientBoostingRegressor(
             n_estimators=n_estimators,
             learning_rate=learning_rate,
+            max_depth=3,
+            subsample=0.8,
+            min_samples_leaf=5,
             random_state=random_seed
         ))
     ])
 
-    # AdaBoost (single output only)
+    # AdaBoost (single output only).
+    # Shallow base estimator (max_depth=3) limits individual tree complexity.
+    from sklearn.tree import DecisionTreeRegressor
     abr = Pipeline([
         ("scaler", StandardScaler(with_mean=False)),
         ("reg", AdaBoostRegressor(
+            estimator=DecisionTreeRegressor(max_depth=3),
             n_estimators=n_estimators,
             random_state=random_seed
         ))

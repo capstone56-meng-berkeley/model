@@ -31,6 +31,7 @@ matplotlib.use("Agg")  # headless rendering for CI
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
 
 from src.config import Config, ensure_dir, load_config
 from src.model_trainer import (
@@ -40,13 +41,8 @@ from src.model_trainer import (
     plot_model_comparison,
     plot_predictions,
 )
+from src.config import EncodingConfig, MissingDataConfig, PreprocessingConfig, ScalingConfig
 from src.preprocessing import FeaturePreprocessor
-from src.preprocessing.pipeline import (
-    EncodingConfig,
-    MissingDataConfig,
-    PreprocessingConfig,
-    ScalingConfig,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +61,7 @@ def parse_env():
     return {
         "worksheet_name": os.getenv("WORKSHEET_NAME", "Sheet1"),
         "dataset_path": os.getenv("DATASET_PATH", ""),
+        "image_cache_path": os.getenv("IMAGE_CACHE_PATH", ""),
         "target_columns": [c.strip() for c in target_str.split(",") if c.strip()],
         "backbones": [b.strip() for b in backbone_str.split(",") if b.strip()],
         "regression_models": [m.strip() for m in model_str.split(",") if m.strip()],
@@ -75,6 +72,9 @@ def parse_env():
         "random_seed": int(os.getenv("RANDOM_SEED", "42")),
         "scaling_method": os.getenv("SCALING_METHOD", "standard"),
         "imputer_strategy": os.getenv("IMPUTER_STRATEGY", "median"),
+        # PCA components for image features (0 = disabled).
+        # Recommended: 20–50 when n_samples < 200.
+        "pca_components": int(os.getenv("PCA_COMPONENTS", "0")),
     }
 
 
@@ -219,26 +219,46 @@ def main():
     # -- Image features -----------------------------------------------------
     print("\n[5/8] Image features...")
 
-    # Compute expected feature dimension from backbone names
-    backbone_dims = {
-        "vgg16": 512, "vgg19": 512,
-        "resnet18": 512, "resnet50": 2048, "resnet101": 2048,
-        "densenet121": 1024,
-        "efficientnet_b0": 1280, "efficientnet_b4": 1792,
-        "convnext_tiny": 768, "mobilenet_v3": 960,
-        "dinov2_vits14": 384, "dinov2_vitb14": 768, "dinov2_vitl14": 1024,
-    }
-    feature_dim = sum(backbone_dims.get(b, 512) for b in env["backbones"])
-
-    # TODO: Replace with actual image extraction when SEM images are available
-    np.random.seed(env["random_seed"])
-    X_images = np.random.randn(len(df_filtered), feature_dim).astype(np.float32)
-    print(f"  Simulated image features: {X_images.shape} (backbones: {env['backbones']})")
+    cache_path = env["image_cache_path"]
+    if cache_path and os.path.exists(cache_path):
+        print(f"  Loading image features from cache: {cache_path}")
+        data = np.load(cache_path, allow_pickle=True)
+        X_images = data["X"].astype(np.float32)
+        # Align rows: cache may cover more samples than df_filtered
+        if X_images.shape[0] != len(df_filtered):
+            print(f"  Warning: cache has {X_images.shape[0]} rows, "
+                  f"filtered dataset has {len(df_filtered)} — using tabular-only")
+            X_images = None
+        else:
+            print(f"  Image features shape: {X_images.shape}")
+    else:
+        if cache_path:
+            print(f"  IMAGE_CACHE_PATH set but file not found: {cache_path}")
+        print("  No image cache available — training on tabular features only")
+        X_images = None
 
     # -- Combine features ---------------------------------------------------
     print("\n[6/8] Combining features...")
-    X_combined = np.concatenate([X_images, X_tabular], axis=1)
-    print(f"  Combined: {X_images.shape[1]} (image) + {X_tabular.shape[1]} (tabular) = {X_combined.shape[1]}")
+    if X_images is not None:
+        X_combined = np.concatenate([X_images, X_tabular], axis=1)
+        print(f"  Combined: {X_images.shape[1]} (image) + {X_tabular.shape[1]} (tabular) "
+              f"= {X_combined.shape[1]}")
+        image_dim = int(X_images.shape[1])
+    else:
+        X_combined = X_tabular
+        print(f"  Tabular only: {X_tabular.shape[1]} features")
+        image_dim = 0
+
+    # -- PCA dimensionality reduction (optional) ----------------------------
+    pca = None
+    n_pca = env["pca_components"]
+    if n_pca > 0 and X_combined.shape[1] > n_pca:
+        n_pca = min(n_pca, X_combined.shape[0] - 1)  # can't exceed n_samples - 1
+        print(f"\n  Applying PCA: {X_combined.shape[1]} → {n_pca} components")
+        pca = PCA(n_components=n_pca, random_state=env["random_seed"])
+        X_combined = pca.fit_transform(X_combined)
+        explained = pca.explained_variance_ratio_.sum()
+        print(f"  Explained variance: {explained:.1%}")
 
     # -- Train --------------------------------------------------------------
     print("\n[7/8] Training models...")
@@ -355,9 +375,11 @@ def main():
             "test_size": env["test_size"],
             "val_size": env["val_size"],
             "random_seed": env["random_seed"],
+            "image_cache": env["image_cache_path"] or None,
+            "pca_components": n_pca if pca is not None else None,
             "feature_dimensions": {
                 "tabular": int(X_tabular.shape[1]),
-                "image": int(X_images.shape[1]),
+                "image": image_dim,
                 "total": int(X_combined.shape[1]),
             },
             "samples": {

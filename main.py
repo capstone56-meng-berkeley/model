@@ -19,7 +19,7 @@ from src.data_loader import DataLoader
 from src.extraction import FeatureExtractor
 from src.extraction.extractor import ExtractionConfig
 from src.preprocessing import FeaturePreprocessor
-from src.preprocessing.pipeline import PreprocessingConfig as PipelinePreprocessingConfig
+from src.config import PreprocessingConfig as PipelinePreprocessingConfig
 from src.model_trainer import ModelTrainer, plot_predictions
 
 
@@ -149,14 +149,13 @@ def main():
     if labels_df is not None and not labels_df.empty and config.features.feature_columns:
         # Build preprocessing config from main config
         preproc_config = PipelinePreprocessingConfig(
-            column_types=config.features.column_types,
             missing_data=config.features.preprocessing.missing_data,
             scaling=config.features.preprocessing.scaling,
             encoding=config.features.preprocessing.encoding
         )
 
-        preprocessor = FeaturePreprocessor(preproc_config)
-        X_tabular = preprocessor.fit_transform(labels_df, config.features.feature_columns)
+        preprocessor = FeaturePreprocessor(preproc_config, column_types=config.features.column_types)
+        X_tabular = preprocessor.fit_transform(labels_df[config.features.feature_columns])
         print(f"  Tabular features shape: {X_tabular.shape}")
         print(f"  Tabular feature names: {preprocessor.get_feature_names()[:5]}...")
     else:

@@ -1,8 +1,7 @@
 """Imputer implementations for missing value handling."""
 
-from typing import Any, Optional
+from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from ..registry import Registry
@@ -24,8 +23,7 @@ class MeanImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
-        if not self._fitted:
-            raise RuntimeError("Imputer not fitted. Call fit() first.")
+        self._check_fitted()
         return series.fillna(self._fit_value)
 
 
@@ -39,8 +37,7 @@ class MedianImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
-        if not self._fitted:
-            raise RuntimeError("Imputer not fitted. Call fit() first.")
+        self._check_fitted()
         return series.fillna(self._fit_value)
 
 
@@ -55,8 +52,7 @@ class ModeImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
-        if not self._fitted:
-            raise RuntimeError("Imputer not fitted. Call fit() first.")
+        self._check_fitted()
         if self._fit_value is not None:
             return series.fillna(self._fit_value)
         return series
@@ -67,35 +63,24 @@ class ConstantImputer(BaseImputer):
     """Fill missing values with a constant value."""
 
     def __init__(self, value: Any = 0, **kwargs):
-        """
-        Initialize constant imputer.
-
-        Args:
-            value: Constant value to fill missing values with
-        """
         super().__init__(**kwargs)
         self._fit_value = value
 
     def fit(self, series: pd.Series) -> 'ConstantImputer':
-        # No fitting needed for constant
         self._fitted = True
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.fillna(self._fit_value)
 
 
 @ImputerRegistry.register("zero")
-class ZeroImputer(BaseImputer):
-    """Fill missing values with zero."""
+class ZeroImputer(ConstantImputer):
+    """Fill missing values with zero. Alias for ConstantImputer(value=0)."""
 
-    def fit(self, series: pd.Series) -> 'ZeroImputer':
-        self._fit_value = 0
-        self._fitted = True
-        return self
-
-    def transform(self, series: pd.Series) -> pd.Series:
-        return series.fillna(0)
+    def __init__(self, **kwargs):
+        super().__init__(value=0, **kwargs)
 
 
 @ImputerRegistry.register("forward_fill")
@@ -107,6 +92,7 @@ class ForwardFillImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.ffill()
 
 
@@ -119,23 +105,16 @@ class BackwardFillImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.bfill()
 
 
 @ImputerRegistry.register("unknown")
-class UnknownImputer(BaseImputer):
-    """Fill missing categorical values with 'Unknown' string."""
+class UnknownImputer(ConstantImputer):
+    """Fill missing categorical values with 'Unknown'. Alias for ConstantImputer(value='Unknown')."""
 
     def __init__(self, unknown_value: str = "Unknown", **kwargs):
-        super().__init__(**kwargs)
-        self._fit_value = unknown_value
-
-    def fit(self, series: pd.Series) -> 'UnknownImputer':
-        self._fitted = True
-        return self
-
-    def transform(self, series: pd.Series) -> pd.Series:
-        return series.fillna(self._fit_value)
+        super().__init__(value=unknown_value, **kwargs)
 
 
 @ImputerRegistry.register("interpolate")
@@ -143,12 +122,6 @@ class InterpolateImputer(BaseImputer):
     """Fill missing values using interpolation."""
 
     def __init__(self, method: str = "linear", **kwargs):
-        """
-        Initialize interpolation imputer.
-
-        Args:
-            method: Interpolation method ('linear', 'quadratic', 'cubic', etc.)
-        """
         super().__init__(**kwargs)
         self.method = method
 
@@ -157,18 +130,10 @@ class InterpolateImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.interpolate(method=self.method)
 
 
 def get_imputer(strategy: str, **kwargs) -> BaseImputer:
-    """
-    Factory function to get an imputer by strategy name.
-
-    Args:
-        strategy: Imputer strategy name
-        **kwargs: Additional arguments for the imputer
-
-    Returns:
-        Imputer instance
-    """
+    """Factory function to get an imputer by strategy name."""
     return ImputerRegistry.create(strategy, **kwargs)

@@ -320,6 +320,14 @@ class UniqueStringHandler(BaseTypeHandler):
 class BooleanHandler(BaseTypeHandler):
     """Handler for boolean columns."""
 
+    _BOOL_MAP: Dict[Any, int] = {
+        True: 1, False: 0,
+        'True': 1, 'False': 0,
+        'true': 1, 'false': 0,
+        '1': 1, '0': 0,
+        1: 1, 0: 0,
+    }
+
     def __init__(
         self,
         column_name: str,
@@ -339,10 +347,7 @@ class BooleanHandler(BaseTypeHandler):
         super().__init__(column_name, imputer, encoder, scaler, **kwargs)
 
     def fit(self, series: pd.Series) -> 'BooleanHandler':
-        # Convert to numeric (True=1, False=0)
-        bool_series = series.map({True: 1, False: 0, 'True': 1, 'False': 0,
-                                   'true': 1, 'false': 0, '1': 1, '0': 0,
-                                   1: 1, 0: 0}).astype(float)
+        bool_series = series.map(self._BOOL_MAP).astype(float)
 
         if self.imputer:
             self.imputer.fit(bool_series)
@@ -360,14 +365,51 @@ class BooleanHandler(BaseTypeHandler):
         if not self._fitted:
             raise RuntimeError("Handler not fitted. Call fit() first.")
 
-        bool_series = series.map({True: 1, False: 0, 'True': 1, 'False': 0,
-                                   'true': 1, 'false': 0, '1': 1, '0': 0,
-                                   1: 1, 0: 0}).astype(float)
+        bool_series = series.map(self._BOOL_MAP).astype(float)
 
         imputed = self.imputer.transform(bool_series) if self.imputer else bool_series
         encoded = self.encoder.transform(imputed) if self.encoder else imputed.values.reshape(-1, 1)
 
         return encoded
+
+
+@TypeHandlerRegistry.register(TYPE_DATETIME)
+class DatetimeHandler(BaseTypeHandler):
+    """Handler for datetime columns — extracts year, month, day, dayofweek as numeric features."""
+
+    def __init__(
+        self,
+        column_name: str,
+        imputer=None,
+        encoder=None,
+        scaler=None,
+        **kwargs
+    ):
+        if scaler is None:
+            scaler = ScalerRegistry.create("none")
+        super().__init__(column_name, imputer, encoder, scaler, **kwargs)
+
+    def fit(self, series: pd.Series) -> 'DatetimeHandler':
+        self._feature_names = [
+            f"{self.column_name}_year",
+            f"{self.column_name}_month",
+            f"{self.column_name}_day",
+            f"{self.column_name}_dayofweek",
+        ]
+        self._fitted = True
+        return self
+
+    def transform(self, series: pd.Series) -> np.ndarray:
+        if not self._fitted:
+            raise RuntimeError("Handler not fitted. Call fit() first.")
+
+        dt = pd.to_datetime(series, errors='coerce')
+        return np.column_stack([
+            dt.dt.year.fillna(0).astype(np.float64),
+            dt.dt.month.fillna(0).astype(np.float64),
+            dt.dt.day.fillna(0).astype(np.float64),
+            dt.dt.dayofweek.fillna(0).astype(np.float64),
+        ])
 
 
 def get_type_handler(
