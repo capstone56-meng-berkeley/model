@@ -1,0 +1,119 @@
+{
+  "run_id": "20260414_192336",
+  "timestamp": "2026-04-14T19:23:38.162526+00:00",
+  "configuration": {
+    "dataset": "datasets/metadata_latest.csv",
+    "worksheet_name": "Sheet1",
+    "target_columns": [
+      "cycle1_holdingtemp_degc",
+      "cycle1_holdingtime_min"
+    ],
+    "backbones": [
+      "resnet50",
+      "vgg16"
+    ],
+    "regression_models": [
+      "RF",
+      "GBR",
+      "ABR"
+    ],
+    "scaler": "standard",
+    "imputer": "median",
+    "n_estimators": 100,
+    "learning_rate": 0.1,
+    "test_size": 0.15,
+    "val_size": 0.15,
+    "random_seed": 42,
+    "image_cache": "data/image_cache_dinov2_vitb14.npz",
+    "pca_components": null,
+    "feature_dimensions": {
+      "tabular": 17,
+      "morphological": 33,
+      "image": 768,
+      "total": 818
+    },
+    "samples": {
+      "total": 111,
+      "train": 79,
+      "val": 15,
+      "test": 17
+    }
+  },
+  "results": {
+    "RF": {
+      "train": {
+        "R2": 0.6146,
+        "MAE": 21.8302,
+        "RMSE": 44.2454
+      },
+      "val": {
+        "R2": 0.5531,
+        "MAE": 30.1564,
+        "RMSE": 42.4987
+      },
+      "test": {
+        "R2": 0.5332,
+        "MAE": 30.1925,
+        "RMSE": 53.2801
+      }
+    },
+    "GBR": {
+      "train": {
+        "R2": 0.9669,
+        "MAE": 7.2598,
+        "RMSE": 16.1318
+      },
+      "val": {
+        "R2": 0.8932,
+        "MAE": 16.5353,
+        "RMSE": 25.6913
+      },
+      "test": {
+        "R2": 0.9014,
+        "MAE": 17.2625,
+        "RMSE": 29.2449
+      }
+    },
+    "ABR": {
+      "train": {
+        "R2": 0.9364,
+        "MAE": 14.651,
+        "RMSE": 21.4589
+      },
+      "val": {
+        "R2": 0.6975,
+        "MAE": 22.5546,
+        "RMSE": 32.2767
+      },
+      "test": {
+        "R2": 0.6787,
+        "MAE": 25.6805,
+        "RMSE": 43.5066
+      }
+    }
+  },
+  "best_model": {
+    "name": "GBR",
+    "val_R2": 0.8932,
+    "test_R2": 0.9014,
+    "per_target": {
+      "cycle1_holdingtemp_degc": {
+        "R2": 0.8366,
+        "MAE": 31.3821,
+        "RMSE": 41.0081
+      },
+      "cycle1_holdingtime_min": {
+        "R2": 0.9662,
+        "MAE": 3.1429,
+        "RMSE": 5.3718
+      }
+    }
+  },
+  "training_time_seconds": 1.29,
+  "artifacts": [
+    "model_comparison.png",
+    "predictions_GBR.png",
+    "residuals_GBR.png",
+    "best_model.joblib"
+  ]
+}

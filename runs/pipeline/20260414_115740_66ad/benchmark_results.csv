@@ -1,0 +1,122 @@
+stage,config,mean_r2,std_r2
+preprocessing,dt=0.5 imp=mice sc=robust enc=label,0.3612795005153221,0.44285078105516884
+preprocessing,dt=0.5 imp=mice sc=none enc=label,0.36126724487260226,0.4428449854791236
+preprocessing,dt=0.5 imp=mice sc=minmax enc=label,0.36126208733475684,0.4428446921471042
+preprocessing,dt=0.5 imp=mice sc=standard enc=label,0.36118421025760744,0.44282347735364724
+preprocessing,dt=0.75 imp=mice sc=robust enc=label,0.3566305145918035,0.48488082637864394
+preprocessing,dt=0.75 imp=mice sc=minmax enc=label,0.35661552655968703,0.48490565081694553
+preprocessing,dt=0.75 imp=mice sc=none enc=label,0.35661546829983826,0.4849056489513066
+preprocessing,dt=0.75 imp=mice sc=standard enc=label,0.3565852970045146,0.48489616024118826
+preprocessing,dt=0.75 imp=mean sc=robust enc=label,0.3503481417302033,0.5039274997010587
+preprocessing,dt=0.75 imp=mean sc=none enc=label,0.3503288908033974,0.5039549108568504
+preprocessing,dt=0.75 imp=mean sc=minmax enc=label,0.35032573318845217,0.5039546465597633
+preprocessing,dt=0.75 imp=mean sc=standard enc=label,0.350287003056068,0.5039366969515027
+preprocessing,dt=0.9 imp=mice sc=robust enc=onehot,0.34217229041079056,0.29651121887403015
+preprocessing,dt=0.9 imp=mice sc=none enc=onehot,0.34217229041079056,0.2965112188740302
+preprocessing,dt=0.9 imp=mice sc=minmax enc=onehot,0.3421722904107905,0.29651121887403015
+preprocessing,dt=0.9 imp=mice sc=standard enc=onehot,0.3421334877517351,0.29651481913858496
+preprocessing,dt=0.5 imp=median sc=robust enc=label,0.3397661787485275,0.5036184595170604
+preprocessing,dt=0.5 imp=median sc=none enc=label,0.33975837341263376,0.5036148399332597
+preprocessing,dt=0.5 imp=median sc=standard enc=label,0.3397536230520387,0.5036185013922888
+preprocessing,dt=0.5 imp=median sc=minmax enc=label,0.33975330598196385,0.5036144005309258
+preprocessing,dt=0.5 imp=mean sc=robust enc=label,0.33664725424179387,0.4598578774424063
+preprocessing,dt=0.5 imp=mean sc=none enc=label,0.3366172525390361,0.4598408102356447
+preprocessing,dt=0.5 imp=mean sc=minmax enc=label,0.33661318795795403,0.45984041072165976
+preprocessing,dt=0.5 imp=mean sc=standard enc=label,0.3365624031610613,0.45982878436813995
+preprocessing,dt=0.9 imp=mean sc=minmax enc=onehot,0.3323735811094237,0.3126028263952263
+preprocessing,dt=0.9 imp=mean sc=none enc=onehot,0.33237338111576764,0.3126028448881148
+preprocessing,dt=0.9 imp=mean sc=robust enc=onehot,0.3323733811157675,0.312602844888115
+preprocessing,dt=0.9 imp=mean sc=standard enc=onehot,0.3323563913676512,0.31260187611980483
+preprocessing,dt=0.75 imp=median sc=robust enc=label,0.3280362185962487,0.5597530555191286
+preprocessing,dt=0.75 imp=median sc=none enc=label,0.32803210006997646,0.5597591317060965
+preprocessing,dt=0.75 imp=median sc=minmax enc=label,0.3280287315281293,0.5597588780680557
+preprocessing,dt=0.75 imp=median sc=standard enc=label,0.3279792194704489,0.5597394979395159
+preprocessing,dt=0.9 imp=mice sc=minmax enc=label,0.3244018580269865,0.433584840249137
+preprocessing,dt=0.9 imp=mice sc=robust enc=label,0.32440097636058823,0.43358512071254657
+preprocessing,dt=0.9 imp=mice sc=none enc=label,0.3243855915124599,0.4335853271523445
+preprocessing,dt=0.9 imp=mice sc=standard enc=label,0.3243518675282047,0.43359048220520213
+preprocessing,dt=0.9 imp=mean sc=none enc=label,0.322945070445292,0.3870430618772698
+preprocessing,dt=0.9 imp=mean sc=minmax enc=label,0.3229443157840008,0.3870430098865463
+preprocessing,dt=0.9 imp=mean sc=standard enc=label,0.3223514160884873,0.3902695556723012
+preprocessing,dt=0.9 imp=mean sc=robust enc=label,0.3222225121604179,0.390197463068282
+preprocessing,dt=0.5 imp=mice sc=standard enc=onehot,0.31965718429156337,0.42911359603867166
+preprocessing,dt=0.5 imp=mice sc=robust enc=onehot,0.3195105560176673,0.4292312189387082
+preprocessing,dt=0.5 imp=mice sc=none enc=onehot,0.3194856836078831,0.42923191740056627
+preprocessing,dt=0.5 imp=mice sc=minmax enc=onehot,0.3194845582937813,0.42923191990982756
+preprocessing,dt=0.5 imp=mean sc=robust enc=onehot,0.3141345324326352,0.476676971580685
+preprocessing,dt=0.5 imp=mean sc=none enc=onehot,0.3141318111046509,0.4766759710703964
+preprocessing,dt=0.5 imp=mean sc=minmax enc=onehot,0.31413010251865825,0.4766759074614669
+preprocessing,dt=0.5 imp=mean sc=standard enc=onehot,0.31411821425785236,0.47667349766476963
+preprocessing,dt=0.9 imp=median sc=minmax enc=label,0.3089264330174316,0.3878613440614787
+preprocessing,dt=0.9 imp=median sc=none enc=label,0.30891410539839526,0.3878607006816958
+preprocessing,dt=0.9 imp=median sc=robust enc=label,0.30891410539839514,0.38786070068169587
+preprocessing,dt=0.9 imp=median sc=standard enc=label,0.30884693609953334,0.38786762660605945
+preprocessing,dt=0.95 imp=mice sc=robust enc=onehot,0.3037904751403405,0.47980529771447955
+preprocessing,dt=0.95 imp=mice sc=minmax enc=onehot,0.30378832909170156,0.4798052627379239
+preprocessing,dt=0.95 imp=mice sc=standard enc=onehot,0.30372622211797823,0.47981173626263646
+preprocessing,dt=0.75 imp=mice sc=robust enc=onehot,0.29862623074536115,0.5777008683460374
+preprocessing,dt=0.75 imp=mice sc=none enc=onehot,0.298596778736074,0.5776991040272824
+preprocessing,dt=0.75 imp=mice sc=minmax enc=onehot,0.29859449339082467,0.5776989686303646
+preprocessing,dt=0.75 imp=mice sc=standard enc=onehot,0.2985382972396035,0.5776756061597874
+preprocessing,dt=0.95 imp=mice sc=none enc=onehot,0.2984720494709574,0.4812582164238794
+preprocessing,dt=0.95 imp=mean sc=none enc=onehot,0.29610485454377683,0.4903500755346301
+preprocessing,dt=0.75 imp=mean sc=robust enc=onehot,0.2933717583384767,0.5897249964749289
+preprocessing,dt=0.75 imp=mean sc=none enc=onehot,0.2933623272093841,0.5897204170863456
+preprocessing,dt=0.75 imp=mean sc=minmax enc=onehot,0.293362327209384,0.589720417086346
+preprocessing,dt=0.75 imp=mean sc=standard enc=onehot,0.2933246903919942,0.5897090330816013
+preprocessing,dt=0.95 imp=mean sc=robust enc=onehot,0.2921704439069097,0.4893143335685368
+preprocessing,dt=0.95 imp=mean sc=minmax enc=onehot,0.29210130481066043,0.4893143030733755
+preprocessing,dt=0.95 imp=mean sc=standard enc=onehot,0.2920235129323281,0.48931559836742605
+preprocessing,dt=0.9 imp=median sc=minmax enc=onehot,0.28995088199897,0.4417014709341855
+preprocessing,dt=0.9 imp=median sc=robust enc=onehot,0.2899508819989699,0.4417014709341855
+preprocessing,dt=0.9 imp=median sc=none enc=onehot,0.28995088199896984,0.4417014709341856
+preprocessing,dt=0.9 imp=median sc=standard enc=onehot,0.2899046321165795,0.44170009220233913
+preprocessing,dt=0.95 imp=mice sc=robust enc=label,0.28730206389127466,0.5441453359323666
+preprocessing,dt=0.95 imp=mice sc=minmax enc=label,0.28730206389127455,0.5441453359323668
+preprocessing,dt=0.95 imp=mice sc=standard enc=label,0.28721559031310356,0.5441269196524811
+preprocessing,dt=0.95 imp=mice sc=none enc=label,0.2838308983758224,0.5434044536753404
+preprocessing,dt=0.95 imp=mean sc=minmax enc=label,0.2833922028482969,0.5109856612745715
+preprocessing,dt=0.95 imp=mean sc=robust enc=label,0.2833922028482969,0.5109856612745718
+preprocessing,dt=0.95 imp=mean sc=standard enc=label,0.2833743234601783,0.5109896143444813
+preprocessing,dt=0.75 imp=median sc=none enc=onehot,0.2808164439033944,0.5923340482522913
+preprocessing,dt=0.75 imp=median sc=robust enc=onehot,0.28081644390339433,0.5923340482522913
+preprocessing,dt=0.75 imp=median sc=minmax enc=onehot,0.2808164439033943,0.5923340482522911
+preprocessing,dt=0.75 imp=median sc=standard enc=onehot,0.2807723976376188,0.5923221381252436
+preprocessing,dt=0.5 imp=median sc=standard enc=onehot,0.2800342332745274,0.5820625740917974
+preprocessing,dt=0.5 imp=median sc=robust enc=onehot,0.2798749625699366,0.5821287750481976
+preprocessing,dt=0.5 imp=median sc=none enc=onehot,0.27966016617815337,0.582186259987947
+preprocessing,dt=0.5 imp=median sc=minmax enc=onehot,0.27965717703751186,0.5821860794031437
+preprocessing,dt=0.95 imp=mean sc=none enc=label,0.27923727902549556,0.51269841411449
+preprocessing,dt=0.95 imp=median sc=robust enc=onehot,0.2719121060434203,0.4952273917493981
+preprocessing,dt=0.95 imp=median sc=standard enc=onehot,0.2717881349875722,0.4952370945598538
+preprocessing,dt=0.95 imp=median sc=none enc=onehot,0.27178502288065154,0.49521797586253097
+preprocessing,dt=0.95 imp=median sc=minmax enc=onehot,0.27178382002080054,0.49521786606862817
+preprocessing,dt=0.95 imp=median sc=none enc=label,0.2663220313933609,0.5242696891493271
+preprocessing,dt=0.95 imp=median sc=robust enc=label,0.2663220313933609,0.5242696891493271
+preprocessing,dt=0.95 imp=median sc=minmax enc=label,0.26632203139336086,0.5242696891493274
+preprocessing,dt=0.95 imp=median sc=standard enc=label,0.2662986822550025,0.5242771419815893
+regressor,ABR,0.8004818726893993,0.19107225385007767
+regressor,GBR,0.7884153081489049,0.16723400895073065
+regressor,ExtraTrees,0.5813357056335566,0.2246456362267603
+regressor,RF,0.47926183850617915,0.2865116581746596
+regressor,SVR_linear,0.40691805304210754,0.42621449539522255
+regressor,KNN_3,0.3912722290111949,0.7377857214497556
+regressor,SVR_rbf,0.1981625722240865,0.4307487308477316
+regressor,KNN_5,-0.035858213676790304,1.1883742038718648
+backbone,resnet18,0.8154607347694774,0.1455802927012957
+backbone,vgg16,0.81382977673139,0.15269973019855304
+backbone,efficientnet_b4,0.8092003396653805,0.17034224418866709
+backbone,resnet101,0.8020193597171964,0.1590327562424379
+backbone,mobilenet_v3,0.801580671146193,0.15683355342755192
+backbone,tabular_only,0.8004818726893993,0.19107225385007767
+backbone,vgg19,0.7985829487195707,0.17035729204312977
+backbone,dinov2_vitl14,0.7985595329948922,0.1649900379971525
+backbone,densenet121,0.7966830877693447,0.17711885551184522
+backbone,convnext_tiny,0.7795261724566136,0.23483069778245275
+backbone,dinov2_vitb14,0.7759848127955756,0.23834833663044142
+backbone,efficientnet_b0,0.7759650613009349,0.2340833204141412
+backbone,resnet50,0.775758437783787,0.21535877224475802
+backbone,dinov2_vits14,0.7617319196952606,0.24222886885196884
+tuned,GBR,0.9055770153214447,0.15490685282450417
+tuned,ABR,0.8661333516966201,0.2039329286417189
+tuned,ExtraTrees,0.8100697179617344,0.20345978477329485

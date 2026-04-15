@@ -13,14 +13,21 @@ import os
 import sys
 
 import numpy as np
+import pandas as pd
 
-from src.config import load_config, ensure_dir
+from src.config import load_config, ensure_dir, PreprocessingConfig, MissingDataConfig, ScalingConfig, EncodingConfig
 from src.data_loader import DataLoader
-from src.extraction import FeatureExtractor
+from src.extraction import FeatureExtractor, MorphologicalExtractor, MorphologyConfig
 from src.extraction.extractor import ExtractionConfig
 from src.preprocessing import FeaturePreprocessor
-from src.preprocessing.pipeline import PreprocessingConfig as PipelinePreprocessingConfig
 from src.model_trainer import ModelTrainer, plot_predictions
+from src.column_sanitizer import sanitize_dataframe
+
+# MICE imputation: correlated alloy elements with random missingness
+MICE_COLUMNS = ["cr", "mo", "s", "ni", "al"]
+
+# Binary presence indicators: structural missingness (element not in alloy)
+INDICATOR_COLUMNS = ["ti", "nb", "v"]
 
 
 def parse_args():
@@ -86,6 +93,8 @@ def main():
     if not args.train_only:
         print("\n[2/6] Loading data...")
         image_paths, labels_df = data_loader.load_data()
+        if not labels_df.empty:
+            labels_df = sanitize_dataframe(labels_df)
         print(f"  Images: {len(image_paths)}")
         print(f"  Labels shape: {labels_df.shape if not labels_df.empty else 'N/A'}")
     else:
@@ -148,38 +157,124 @@ def main():
     X_tabular = None
     if labels_df is not None and not labels_df.empty and config.features.feature_columns:
         # Build preprocessing config from main config
-        preproc_config = PipelinePreprocessingConfig(
-            column_types=config.features.column_types,
+        preproc_config = PreprocessingConfig(
             missing_data=config.features.preprocessing.missing_data,
             scaling=config.features.preprocessing.scaling,
             encoding=config.features.preprocessing.encoding
         )
 
-        preprocessor = FeaturePreprocessor(preproc_config)
-        X_tabular = preprocessor.fit_transform(labels_df, config.features.feature_columns)
+        feature_cols = config.features.feature_columns
+        mice_cols = [c for c in MICE_COLUMNS if c in feature_cols]
+        indicator_cols = [c for c in INDICATOR_COLUMNS if c in feature_cols]
+
+        preprocessor = FeaturePreprocessor(
+            preproc_config,
+            column_types=config.features.column_types,
+            mice_columns=mice_cols,
+            indicator_columns=indicator_cols,
+        )
+        X_tabular = preprocessor.fit_transform(labels_df[config.features.feature_columns])
         print(f"  Tabular features shape: {X_tabular.shape}")
         print(f"  Tabular feature names: {preprocessor.get_feature_names()[:5]}...")
     else:
         print("  No tabular feature columns configured, skipping")
 
-    # Step 5: Concatenate features
-    print("\n[5/6] Concatenating features...")
+    # Step 5: Morphological features
+    print("\n[5/7] Extracting morphological features...")
+
+    X_morphological = None
+
+    import re as _re_m
+    import glob as _glob_m
+    from collections import defaultdict as _dd_m
+
+    _F_RE_M2 = _re_m.compile(r'_F_\d+\.[a-z]+$', _re_m.IGNORECASE)
+
+    def _img_key2(path):
+        return _F_RE_M2.sub('', os.path.basename(path)).lower()
+
+    def _id_key2(row_id):
+        return str(row_id).strip().lower().replace('-', '_').replace(' ', '_')
+
+    images_dir_m = config.images_dir  # data/temp_images in drive mode
+    all_imgs_m2 = sorted(
+        _glob_m.glob(os.path.join(images_dir_m, '*.jpg')) +
+        _glob_m.glob(os.path.join(images_dir_m, '*.png'))
+    )
+
+    if not all_imgs_m2:
+        print(f"  No images found in {images_dir_m} — skipping morphological features")
+    elif labels_df is None or labels_df.empty or 'id' not in labels_df.columns:
+        print("  No labels/id column — skipping morphological features")
+    else:
+        key_to_paths_m2 = _dd_m(list)
+        for p in all_imgs_m2:
+            key_to_paths_m2[_img_key2(p)].append(p)
+
+        morph_cfg2 = MorphologyConfig(cache_path=config.morph_cache)
+        morph_extractor2 = MorphologicalExtractor(morph_cfg2)
+        morph_feat_names = morph_extractor2.get_feature_names()
+        n_feats_m2 = len(morph_feat_names)
+
+        if config.morph_cache and os.path.exists(config.morph_cache):
+            print(f"  Loading morphological features from cache: {config.morph_cache}")
+            _cd2 = np.load(config.morph_cache, allow_pickle=True)
+            X_morph_raw = _cd2["X"].astype(np.float64)
+        else:
+            X_morph_raw = np.full((len(labels_df), n_feats_m2), np.nan, dtype=np.float64)
+            for row_idx, row_id in enumerate(labels_df['id']):
+                paths = key_to_paths_m2.get(_id_key2(row_id), [])
+                if not paths:
+                    continue
+                feats = np.vstack([morph_extractor2.extract_single(p) for p in paths])
+                X_morph_raw[row_idx] = np.nanmean(feats, axis=0)
+            if config.morph_cache:
+                ensure_dir(os.path.dirname(config.morph_cache) or ".")
+                np.savez(config.morph_cache, X=X_morph_raw)
+                print(f"  Cached morphological features to {config.morph_cache}")
+
+        df_morph2 = pd.DataFrame(X_morph_raw, columns=morph_feat_names)
+        morph_preproc2 = FeaturePreprocessor(
+            PreprocessingConfig(
+                missing_data=MissingDataConfig(
+                    column_drop_threshold=0.95,
+                    row_fill_threshold=1.0,
+                    numeric_fill_strategy="median",
+                    categorical_fill_strategy="mode",
+                ),
+                scaling=ScalingConfig(method="standard", enabled=True),
+                encoding=EncodingConfig(categorical="onehot", max_categories=50),
+            )
+        )
+        X_morphological = morph_preproc2.fit_transform(df_morph2)
+        n_matched_m2 = int((~np.isnan(X_morph_raw).any(axis=1)).sum())
+        print(f"  Rows matched to images: {n_matched_m2}/{len(labels_df)}")
+        print(f"  Morphological features: {X_morphological.shape[1]}")
+
+    # Step 6: Concatenate features
+    print("\n[6/7] Concatenating features...")
+
+    parts = [X_images]
+    dim_log = [f"{X_images.shape[1]} (CNN image)"]
+
+    if X_morphological is not None and X_morphological.shape[1] > 0:
+        if X_morphological.shape[0] == X_images.shape[0]:
+            parts.append(X_morphological)
+            dim_log.append(f"{X_morphological.shape[1]} (morphological)")
+        else:
+            print(f"  Warning: morphological samples ({X_morphological.shape[0]}) != "
+                  f"image samples ({X_images.shape[0]}) — skipping morphological")
 
     if X_tabular is not None and X_tabular.shape[1] > 0:
-        # Ensure same number of samples
-        if X_images.shape[0] != X_tabular.shape[0]:
-            print(f"  Warning: Image samples ({X_images.shape[0]}) != "
-                  f"Tabular samples ({X_tabular.shape[0]})")
-            min_samples = min(X_images.shape[0], X_tabular.shape[0])
-            X_images = X_images[:min_samples]
-            X_tabular = X_tabular[:min_samples]
+        if X_tabular.shape[0] == X_images.shape[0]:
+            parts.append(X_tabular)
+            dim_log.append(f"{X_tabular.shape[1]} (tabular)")
+        else:
+            print(f"  Warning: tabular samples ({X_tabular.shape[0]}) != "
+                  f"image samples ({X_images.shape[0]}) — skipping tabular")
 
-        X_combined = np.concatenate([X_images, X_tabular], axis=1)
-        print(f"  Combined features: {X_images.shape[1]} (image) + "
-              f"{X_tabular.shape[1]} (tabular) = {X_combined.shape[1]}")
-    else:
-        X_combined = X_images
-        print(f"  Using image features only: {X_combined.shape}")
+    X_combined = np.concatenate(parts, axis=1)
+    print(f"  Combined: {' + '.join(dim_log)} = {X_combined.shape[1]}")
 
     # Extract labels
     label_columns = config.features.label_columns
@@ -199,8 +294,8 @@ def main():
         print("\n  Feature extraction complete")
         return
 
-    # Step 6: Train model
-    print("\n[6/6] Training models...")
+    # Step 7: Train model
+    print("\n[7/7] Training models...")
     trainer = ModelTrainer(config)
 
     X_train, X_val, X_test, Y_train, Y_val, Y_test = trainer.split_data(X_combined, Y)

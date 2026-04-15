@@ -46,7 +46,12 @@ class ImageDataset(Dataset):
         img_path = self.image_paths[idx]
         filename = os.path.basename(img_path)
 
-        img = Image.open(img_path).convert("RGB")
+        try:
+            img = Image.open(img_path).convert("RGB")
+        except Exception:
+            print(f"  [WARN] Skipping unreadable image: {img_path}")
+            img = Image.new("RGB", (224, 224), 0)
+
         if self.transform is not None:
             img = self.transform(img)
 

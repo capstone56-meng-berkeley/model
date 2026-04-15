@@ -1,0 +1,16 @@
+{
+  "scope": "dp_steel",
+  "n_samples": 54,
+  "n_features": 17,
+  "best_preproc": "drop_threshold    0.5000\nimpute              mice\nscale             robust\nencode             label\nmean_r2           0.3613\nstd_r2            0.4429\nName: 0, dtype: object",
+  "best_regressor": "ABR",
+  "best_backbone": "resnet18",
+  "best_preproc_r2": 0.3612795005153221,
+  "best_reg_r2": 0.8004818726893993,
+  "best_backbone_r2": 0.8154607347694774,
+  "best_tuned_r2": 0.9055770153214447,
+  "n_trials": 100,
+  "run_id": "20260414_115740_66ad",
+  "name": "pipeline",
+  "saved_at": "2026-04-14 12:12:44"
+}

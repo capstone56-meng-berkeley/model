@@ -43,6 +43,14 @@ on:
         description: 'Imputer (median/mean/zero)'
         type: string
         default: 'median'
+      image_cache_path:
+        description: 'Path to pre-extracted image features .npz (blank = tabular only)'
+        type: string
+        default: ''
+      pca_components:
+        description: 'PCA components after combining features (0 = disabled, 20-50 recommended for n<200)'
+        type: string
+        default: '0'
 
 jobs:
   train:
@@ -75,6 +83,8 @@ jobs:
           VAL_SIZE: ${{ inputs.val_size }}
           SCALING_METHOD: ${{ inputs.scaling_method }}
           IMPUTER_STRATEGY: ${{ inputs.imputer_strategy }}
+          IMAGE_CACHE_PATH: ${{ inputs.image_cache_path }}
+          PCA_COMPONENTS: ${{ inputs.pca_components }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDENTIALS_PATH: ${{ secrets.GOOGLE_CREDENTIALS_PATH }}
           GOOGLE_TOKEN_PATH: ${{ secrets.GOOGLE_TOKEN_PATH }}

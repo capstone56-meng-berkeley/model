@@ -1,0 +1,20 @@
+{
+  "backbone": "dinov2_vitb14",
+  "n_samples": 111,
+  "n_features": 940,
+  "n_image_features": 768,
+  "n_morph_features": 33,
+  "n_tabular_features": 139,
+  "c1_best_model": "GBR",
+  "c1_test_r2_avg": 0.7289749716852769,
+  "c1_holdingtemp_r2": 0.49230053038201393,
+  "c1_holdingtime_r2": 0.96564941298854,
+  "c1_cv_r2_mean": 0.5087105080406656,
+  "c1_cv_r2_std": 0.1619733504911688,
+  "c1c2_best_model": "GBR",
+  "c1c2_test_r2_avg": 0.850839468850523,
+  "tags": "bayes_best=ABR,r2=0.5087,delta=-0.3188; backbone=dinov2_vitb14; morph=True",
+  "run_id": "20260414_115323_0fa8",
+  "name": "demo",
+  "saved_at": "2026-04-14 11:53:49"
+}

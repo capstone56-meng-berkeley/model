@@ -1,8 +1,7 @@
 """Imputer implementations for missing value handling."""
 
-from typing import Any, Optional
+from typing import Any, List
 
-import numpy as np
 import pandas as pd
 
 from ..registry import Registry
@@ -24,8 +23,7 @@ class MeanImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
-        if not self._fitted:
-            raise RuntimeError("Imputer not fitted. Call fit() first.")
+        self._check_fitted()
         return series.fillna(self._fit_value)
 
 
@@ -39,8 +37,7 @@ class MedianImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
-        if not self._fitted:
-            raise RuntimeError("Imputer not fitted. Call fit() first.")
+        self._check_fitted()
         return series.fillna(self._fit_value)
 
 
@@ -55,8 +52,7 @@ class ModeImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
-        if not self._fitted:
-            raise RuntimeError("Imputer not fitted. Call fit() first.")
+        self._check_fitted()
         if self._fit_value is not None:
             return series.fillna(self._fit_value)
         return series
@@ -67,35 +63,24 @@ class ConstantImputer(BaseImputer):
     """Fill missing values with a constant value."""
 
     def __init__(self, value: Any = 0, **kwargs):
-        """
-        Initialize constant imputer.
-
-        Args:
-            value: Constant value to fill missing values with
-        """
         super().__init__(**kwargs)
         self._fit_value = value
 
     def fit(self, series: pd.Series) -> 'ConstantImputer':
-        # No fitting needed for constant
         self._fitted = True
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.fillna(self._fit_value)
 
 
 @ImputerRegistry.register("zero")
-class ZeroImputer(BaseImputer):
-    """Fill missing values with zero."""
+class ZeroImputer(ConstantImputer):
+    """Fill missing values with zero. Alias for ConstantImputer(value=0)."""
 
-    def fit(self, series: pd.Series) -> 'ZeroImputer':
-        self._fit_value = 0
-        self._fitted = True
-        return self
-
-    def transform(self, series: pd.Series) -> pd.Series:
-        return series.fillna(0)
+    def __init__(self, **kwargs):
+        super().__init__(value=0, **kwargs)
 
 
 @ImputerRegistry.register("forward_fill")
@@ -107,6 +92,7 @@ class ForwardFillImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.ffill()
 
 
@@ -119,23 +105,16 @@ class BackwardFillImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.bfill()
 
 
 @ImputerRegistry.register("unknown")
-class UnknownImputer(BaseImputer):
-    """Fill missing categorical values with 'Unknown' string."""
+class UnknownImputer(ConstantImputer):
+    """Fill missing categorical values with 'Unknown'. Alias for ConstantImputer(value='Unknown')."""
 
     def __init__(self, unknown_value: str = "Unknown", **kwargs):
-        super().__init__(**kwargs)
-        self._fit_value = unknown_value
-
-    def fit(self, series: pd.Series) -> 'UnknownImputer':
-        self._fitted = True
-        return self
-
-    def transform(self, series: pd.Series) -> pd.Series:
-        return series.fillna(self._fit_value)
+        super().__init__(value=unknown_value, **kwargs)
 
 
 @ImputerRegistry.register("interpolate")
@@ -143,12 +122,6 @@ class InterpolateImputer(BaseImputer):
     """Fill missing values using interpolation."""
 
     def __init__(self, method: str = "linear", **kwargs):
-        """
-        Initialize interpolation imputer.
-
-        Args:
-            method: Interpolation method ('linear', 'quadratic', 'cubic', etc.)
-        """
         super().__init__(**kwargs)
         self.method = method
 
@@ -157,18 +130,86 @@ class InterpolateImputer(BaseImputer):
         return self
 
     def transform(self, series: pd.Series) -> pd.Series:
+        self._check_fitted()
         return series.interpolate(method=self.method)
 
 
+@ImputerRegistry.register("mice")
+class MICEImputer(BaseImputer):
+    """
+    Multiple Imputation by Chained Equations (MICE).
+
+    Wraps sklearn's IterativeImputer. Unlike other imputers this operates on
+    a full numeric DataFrame, not a single Series.  Direct per-column use via
+    fit(series)/transform(series) raises NotImplementedError — wire it through
+    FeaturePreprocessor(mice_columns=[...]) which calls fit_df/transform_df.
+    """
+
+    def __init__(self, max_iter: int = 10, random_state: int = 42, **kwargs):
+        super().__init__(**kwargs)
+        self.max_iter = max_iter
+        self.random_state = random_state
+        self._imputer = None
+        self._columns: List[str] = []
+
+    # ------------------------------------------------------------------
+    # Per-series API — intentionally unsupported
+    # ------------------------------------------------------------------
+    def fit(self, series: pd.Series) -> 'MICEImputer':
+        raise NotImplementedError(
+            "MICEImputer requires the full DataFrame. "
+            "Use FeaturePreprocessor(mice_columns=[...]) instead."
+        )
+
+    def transform(self, series: pd.Series) -> pd.Series:
+        raise NotImplementedError(
+            "MICEImputer requires the full DataFrame. "
+            "Use FeaturePreprocessor(mice_columns=[...]) instead."
+        )
+
+    # ------------------------------------------------------------------
+    # DataFrame API — called by FeaturePreprocessor
+    # ------------------------------------------------------------------
+    def fit_df(self, df: pd.DataFrame, columns: List[str]) -> 'MICEImputer':
+        """
+        Fit the iterative imputer on the given columns of df.
+
+        Args:
+            df: Full feature DataFrame (only numeric columns used)
+            columns: Columns to impute via MICE
+        """
+        from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+        from sklearn.impute import IterativeImputer
+
+        self._columns = columns
+        numeric_df = df[columns].apply(pd.to_numeric, errors='coerce')
+        self._imputer = IterativeImputer(
+            max_iter=self.max_iter,
+            random_state=self.random_state,
+            skip_complete=True,
+        )
+        self._imputer.fit(numeric_df)
+        self._fitted = True
+        return self
+
+    def transform_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Impute missing values in the MICE columns and return an updated DataFrame.
+
+        Args:
+            df: DataFrame containing at least self._columns
+
+        Returns:
+            Copy of df with MICE columns filled
+        """
+        self._check_fitted()
+        numeric_df = df[self._columns].apply(pd.to_numeric, errors='coerce')
+        imputed = self._imputer.transform(numeric_df)
+        df = df.copy()
+        df[self._columns] = imputed
+        return df
+
+
 def get_imputer(strategy: str, **kwargs) -> BaseImputer:
-    """
-    Factory function to get an imputer by strategy name.
-
-    Args:
-        strategy: Imputer strategy name
-        **kwargs: Additional arguments for the imputer
-
-    Returns:
-        Imputer instance
-    """
+    """Factory function to get an imputer by strategy name."""
     return ImputerRegistry.create(strategy, **kwargs)

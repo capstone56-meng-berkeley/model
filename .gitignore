@@ -11,6 +11,7 @@ data/temp_images/
 data/images/
 data/*.npz
 data/*.csv
+data/**/**
 
 # Model outputs
 models/*.joblib
@@ -46,3 +47,5 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+features
+CLAUDE.md
