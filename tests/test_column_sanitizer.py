@@ -65,11 +65,12 @@ class TestSanitizeDataframe:
         out = sanitize_dataframe(df)
         assert out.iloc[0, 0] == 42.0
 
-    def test_no_duplicate_columns(self):
+    def test_collision_raises(self):
+        # 'A (C)' and 'A (°C)' both sanitize to 'a_degc' — must raise
+        import pytest
         df = pd.DataFrame({"A (C)": [1], "A (°C)": [2]})
-        out = sanitize_dataframe(df)
-        # Both map to same name — sanitize_dataframe should handle dedup
-        assert len(out.columns) == len(set(out.columns))
+        with pytest.raises(ValueError, match="collision"):
+            sanitize_dataframe(df)
 
     def test_returns_dataframe(self):
         df = pd.DataFrame({"X": [1, 2]})
