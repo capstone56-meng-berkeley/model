@@ -47,6 +47,7 @@ jobs:
             pandas \
             scikit-learn \
             joblib \
+            python-dotenv \
             pytest
 
       - name: Run tests
