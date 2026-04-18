@@ -3,7 +3,6 @@
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 
@@ -19,8 +18,8 @@ class LocalConfig:
 class GoogleDriveConfig:
     """Configuration for Google Drive data source."""
     row_id_column: str = "A"
-    image_columns: List[str] = field(default_factory=lambda: ["D", "E", "F"])
-    column_types: Dict[str, str] = field(default_factory=lambda: {
+    image_columns: list[str] = field(default_factory=lambda: ["D", "E", "F"])
+    column_types: dict[str, str] = field(default_factory=lambda: {
         "D": "image",
         "E": "image",
         "F": "folder"
@@ -65,9 +64,9 @@ class PreprocessingConfig:
 @dataclass
 class FeaturesConfig:
     """Configuration for feature and label columns."""
-    feature_columns: List[str] = field(default_factory=list)
-    label_columns: List[str] = field(default_factory=list)
-    column_types: Dict[str, str] = field(default_factory=dict)
+    feature_columns: list[str] = field(default_factory=list)
+    label_columns: list[str] = field(default_factory=list)
+    column_types: dict[str, str] = field(default_factory=dict)
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
 
 
@@ -105,7 +104,7 @@ class ImageCleaningConfig:
 
     # --- Claude Vision backend ---
     claude_model: str = "claude-haiku-4-5-20251001"
-    claude_api_key: Optional[str] = None   # Falls back to ANTHROPIC_API_KEY env var
+    claude_api_key: str | None = None   # Falls back to ANTHROPIC_API_KEY env var
     claude_batch_size: int = 10            # Images per annotation batch
     # Path to persist/reuse Claude annotations (JSON sidecar).
     # Set to "" to disable caching.
@@ -118,7 +117,7 @@ class ImageCleaningConfig:
 @dataclass
 class ExtractionConfig:
     """Configuration for image feature extraction."""
-    backbones: List[str] = field(default_factory=lambda: ["vgg16"])
+    backbones: list[str] = field(default_factory=lambda: ["vgg16"])
     pooling: str = "avg"
     parallel: bool = False  # Run multiple backbones in parallel
 
@@ -163,7 +162,7 @@ class Config:
     image_cleaning: ImageCleaningConfig = field(default_factory=ImageCleaningConfig)
 
     # Environment variables (loaded from .env)
-    sheet_id: Optional[str] = None
+    sheet_id: str | None = None
     worksheet_name: str = "Sheet1"
     credentials_path: str = "credentials.json"
     token_path: str = "token.json"
@@ -203,7 +202,7 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
     # Load JSON config
     config_data = {}
     if os.path.exists(config_path):
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config_data = json.load(f)
 
     # Parse nested configs

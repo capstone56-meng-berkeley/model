@@ -44,7 +44,7 @@ import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -70,7 +70,7 @@ def _normalise_id(raw: str) -> str:
 def _align_cache_to_ids(
     cache_path: Union[str, Path],
     df_ids: pd.Series,
-) -> Tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, int]:
     """
     Load an .npz image cache and align rows to *df_ids* by row ID.
 
@@ -88,9 +88,9 @@ def _align_cache_to_ids(
     """
     data = np.load(cache_path, allow_pickle=True)
     X_cache: np.ndarray = data["X"].astype(np.float32)
-    filenames: List[str] = list(data["filenames"])
+    filenames: list[str] = list(data["filenames"])
 
-    id_to_indices: Dict[str, List[int]] = defaultdict(list)
+    id_to_indices: dict[str, list[int]] = defaultdict(list)
     for i, fname in enumerate(filenames):
         rid = _normalise_id(_F_RE.sub("", os.path.basename(fname)))
         id_to_indices[rid].append(i)
@@ -146,8 +146,8 @@ class FeaturePipeline:
     def __init__(
         self,
         data_dir: Union[str, Path] = "data",
-        temp_dir: Optional[Union[str, Path]] = None,
-        features_dir: Optional[Union[str, Path]] = None,
+        temp_dir: Union[str, Path] | None = None,
+        features_dir: Union[str, Path] | None = None,
         credentials_path: Union[str, Path] = "credentials.json",
         token_path: Union[str, Path] = "token.json",
     ) -> None:
@@ -182,7 +182,7 @@ class FeaturePipeline:
         folder_col: str = "augumented_data",
         id_col: str = "id",
         force: bool = False,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Download images from Google Drive folders referenced in *df[folder_col]*.
 
@@ -220,7 +220,7 @@ class FeaturePipeline:
         _folder_re = re.compile(
             r"drive\.google\.com/drive/(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)"
         )
-        folder_entries: List[Tuple[str, str]] = []
+        folder_entries: list[tuple[str, str]] = []
         for _, row in df.iterrows():
             cell = row.get(folder_col, "")
             if not isinstance(cell, str):
@@ -255,13 +255,13 @@ class FeaturePipeline:
 
     def extract_cnn(
         self,
-        image_paths: Optional[List[str]] = None,
-        backbones: Optional[List[str]] = None,
+        image_paths: list[str] | None = None,
+        backbones: list[str] | None = None,
         img_size: int = 224,
         batch_size: int = 16,
         num_workers: int = 2,
         force: bool = False,
-    ) -> Dict[str, Path]:
+    ) -> dict[str, Path]:
         """
         Extract CNN embeddings for each backbone and write per-backbone caches.
 
@@ -278,8 +278,8 @@ class FeaturePipeline:
         -------
         dict mapping backbone name → cache path for every backbone processed.
         """
-        from src.extraction.extractor import FeatureExtractor, ExtractionConfig
         from src.extraction.backbones import BackboneRegistry
+        from src.extraction.extractor import ExtractionConfig, FeatureExtractor
 
         if image_paths is None:
             image_paths = self._list_images()
@@ -292,7 +292,7 @@ class FeaturePipeline:
         if backbones is None:
             backbones = sorted(BackboneRegistry.list_available())
 
-        written: Dict[str, Path] = {}
+        written: dict[str, Path] = {}
         for backbone_name in backbones:
             cache = self.cnn_cache_path(backbone_name)
             if cache.exists() and not force:
@@ -329,7 +329,7 @@ class FeaturePipeline:
 
     def extract_morph(
         self,
-        image_paths: Optional[List[str]] = None,
+        image_paths: list[str] | None = None,
         force: bool = False,
     ) -> Path:
         """
@@ -381,7 +381,7 @@ class FeaturePipeline:
         self,
         backbone: str,
         df_ids: pd.Series,
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """
         Load CNN embeddings for *backbone* and align to *df_ids*.
 
@@ -415,7 +415,7 @@ class FeaturePipeline:
     def load_morph_features(
         self,
         df_ids: pd.Series,
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """
         Load morphological features and align to *df_ids*.
 
@@ -443,10 +443,8 @@ class FeaturePipeline:
             )
             return None
 
+        from src.config import EncodingConfig, MissingDataConfig, PreprocessingConfig, ScalingConfig
         from src.extraction.morphology import MorphologicalExtractor
-        from src.config import (
-            PreprocessingConfig, MissingDataConfig, ScalingConfig, EncodingConfig
-        )
         from src.preprocessing import FeaturePreprocessor
 
         cd = np.load(str(cache), allow_pickle=True)
@@ -457,7 +455,7 @@ class FeaturePipeline:
         if "filenames" in cd:
             # Build id→row mapping from filenames in the cache
             filenames = list(cd["filenames"])
-            id_to_rows: Dict[str, List[int]] = defaultdict(list)
+            id_to_rows: dict[str, list[int]] = defaultdict(list)
             for i, fname in enumerate(filenames):
                 rid = _normalise_id(_F_RE.sub("", os.path.basename(str(fname))))
                 id_to_rows[rid].append(i)
@@ -504,7 +502,7 @@ class FeaturePipeline:
         X_tab: np.ndarray,
         backbone: str,
         df_ids: pd.Series,
-    ) -> Tuple[np.ndarray, str]:
+    ) -> tuple[np.ndarray, str]:
         """
         Concatenate all available feature streams into a single matrix.
 
@@ -544,7 +542,7 @@ class FeaturePipeline:
     # Verification / status
     # ------------------------------------------------------------------
 
-    def verify(self) -> Dict:
+    def verify(self) -> dict:
         """
         Return a status dict summarising which caches exist and their shapes.
 
@@ -565,7 +563,7 @@ class FeaturePipeline:
         """
         from src.extraction.backbones import BackboneRegistry
 
-        status: Dict = {}
+        status: dict = {}
 
         # Raw images
         images = self._list_images()
@@ -605,7 +603,7 @@ class FeaturePipeline:
         """Print a human-readable summary of cache status."""
         s = self.verify()
         print("=" * 60)
-        print(f"FeaturePipeline status")
+        print("FeaturePipeline status")
         print(f"  temp_dir     : {self.temp_dir}")
         print(f"  data_dir     : {self.data_dir}")
         print(f"  features_dir : {self.features_dir}")
@@ -627,7 +625,7 @@ class FeaturePipeline:
     # Internal
     # ------------------------------------------------------------------
 
-    def _list_images(self) -> List[str]:
+    def _list_images(self) -> list[str]:
         """Return sorted list of image paths currently in temp_dir."""
         if not self.temp_dir.exists():
             return []

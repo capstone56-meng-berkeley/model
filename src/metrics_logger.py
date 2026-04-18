@@ -27,15 +27,13 @@ Usage (from a notebook cell)::
 from __future__ import annotations
 
 import csv
-import os
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 # (r2, mae, rmse)
-TargetMetrics = Tuple[float, float, float]
+TargetMetrics = tuple[float, float, float]
 
 _LOG_PATH = Path(__file__).parent.parent / "runs" / "metrics_log.csv"
 
@@ -92,30 +90,30 @@ class RunMetrics:
     notebook: str = "microstructure_demo"
 
     # dataset
-    n_samples: Optional[int] = None
-    n_features: Optional[int] = None
-    backbone: Optional[str] = None
+    n_samples: int | None = None
+    n_features: int | None = None
+    backbone: str | None = None
 
     # feature stream dimensions
-    n_image_features: Optional[int] = None
-    n_morph_features: Optional[int] = None
-    n_tabular_features: Optional[int] = None
-    morph_rows_matched: Optional[int] = None
+    n_image_features: int | None = None
+    n_morph_features: int | None = None
+    n_tabular_features: int | None = None
+    morph_rows_matched: int | None = None
 
     # cycle 1
-    c1_best_model: Optional[str] = None
-    c1_test_r2_avg: Optional[float] = None
-    c1_test_mae_avg: Optional[float] = None
-    c1_test_rmse_avg: Optional[float] = None
-    c1_per_target: Dict[str, TargetMetrics] = field(default_factory=dict)
-    c1_cv_r2_mean: Optional[float] = None
-    c1_cv_r2_std: Optional[float] = None
+    c1_best_model: str | None = None
+    c1_test_r2_avg: float | None = None
+    c1_test_mae_avg: float | None = None
+    c1_test_rmse_avg: float | None = None
+    c1_per_target: dict[str, TargetMetrics] = field(default_factory=dict)
+    c1_cv_r2_mean: float | None = None
+    c1_cv_r2_std: float | None = None
 
     # cycle 1+2
-    c1c2_best_model: Optional[str] = None
-    c1c2_test_r2_avg: Optional[float] = None
-    c1c2_test_mae_avg: Optional[float] = None
-    c1c2_test_rmse_avg: Optional[float] = None
+    c1c2_best_model: str | None = None
+    c1c2_test_r2_avg: float | None = None
+    c1c2_test_mae_avg: float | None = None
+    c1c2_test_rmse_avg: float | None = None
 
     # tags
     _tags: list = field(default_factory=list)
@@ -127,11 +125,11 @@ class RunMetrics:
         n_samples: int,
         n_features: int,
         backbone: str = "none",
-        n_image_features: Optional[int] = None,
-        n_morph_features: Optional[int] = None,
-        n_tabular_features: Optional[int] = None,
-        morph_rows_matched: Optional[int] = None,
-    ) -> "RunMetrics":
+        n_image_features: int | None = None,
+        n_morph_features: int | None = None,
+        n_tabular_features: int | None = None,
+        morph_rows_matched: int | None = None,
+    ) -> RunMetrics:
         self.n_samples = n_samples
         self.n_features = n_features
         self.backbone = backbone
@@ -145,12 +143,12 @@ class RunMetrics:
         self,
         best_model: str,
         test_r2_avg: float,
-        test_mae_avg: Optional[float] = None,
-        test_rmse_avg: Optional[float] = None,
-        per_target: Optional[Dict[str, TargetMetrics]] = None,
-        cv_r2_mean: Optional[float] = None,
-        cv_r2_std: Optional[float] = None,
-    ) -> "RunMetrics":
+        test_mae_avg: float | None = None,
+        test_rmse_avg: float | None = None,
+        per_target: dict[str, TargetMetrics] | None = None,
+        cv_r2_mean: float | None = None,
+        cv_r2_std: float | None = None,
+    ) -> RunMetrics:
         self.c1_best_model = best_model
         self.c1_test_r2_avg = test_r2_avg
         self.c1_test_mae_avg = test_mae_avg
@@ -164,22 +162,22 @@ class RunMetrics:
         self,
         best_model: str,
         test_r2_avg: float,
-        test_mae_avg: Optional[float] = None,
-        test_rmse_avg: Optional[float] = None,
-    ) -> "RunMetrics":
+        test_mae_avg: float | None = None,
+        test_rmse_avg: float | None = None,
+    ) -> RunMetrics:
         self.c1c2_best_model = best_model
         self.c1c2_test_r2_avg = test_r2_avg
         self.c1c2_test_mae_avg = test_mae_avg
         self.c1c2_test_rmse_avg = test_rmse_avg
         return self
 
-    def add_tag(self, *tags: str) -> "RunMetrics":
+    def add_tag(self, *tags: str) -> RunMetrics:
         self._tags.extend(tags)
         return self
 
     # ── serialisation ─────────────────────────────────────────────────────────
 
-    def to_row(self) -> Dict[str, object]:
+    def to_row(self) -> dict[str, object]:
         # Unpack per-target dict (keys: holdingtemp, holdingtime)
         def _pt(key: str, idx: int):
             t = self.c1_per_target.get(key)
@@ -252,7 +250,7 @@ def _fmt(v) -> str:
         return str(v)
 
 
-def log_run(metrics: RunMetrics, log_path: Optional[Path] = None) -> Path:
+def log_run(metrics: RunMetrics, log_path: Path | None = None) -> Path:
     """
     Append one row to the metrics log CSV and return the path.
 
@@ -274,7 +272,7 @@ def log_run(metrics: RunMetrics, log_path: Optional[Path] = None) -> Path:
     return path
 
 
-def load_log(log_path: Optional[Path] = None):
+def load_log(log_path: Path | None = None):
     """Return the metrics log as a pandas DataFrame (requires pandas)."""
     import pandas as pd
     path = Path(log_path) if log_path else _LOG_PATH

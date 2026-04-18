@@ -46,11 +46,9 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
-from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +63,7 @@ _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}
 class ImageAnnotation:
     """Claude Vision annotation for one image."""
     filename: str
-    scale_bar_bbox: Optional[Tuple[int, int, int, int]] = None  # x1,y1,x2,y2
+    scale_bar_bbox: tuple[int, int, int, int] | None = None  # x1,y1,x2,y2
     phase_class: str = "unknown"    # dp_steel | single_phase | unclear
     focus_score: int = 0            # 1-5
     notes: str = ""
@@ -83,7 +81,7 @@ class CleanResult:
 
 @dataclass
 class CleanReport:
-    results: List[CleanResult] = field(default_factory=list)
+    results: list[CleanResult] = field(default_factory=list)
 
     def summary(self) -> str:
         ok      = sum(1 for r in self.results if r.status == "ok")
@@ -103,10 +101,10 @@ class CleanReport:
         ]
         return "\n".join(lines)
 
-    def non_dp_images(self) -> List[str]:
+    def non_dp_images(self) -> list[str]:
         return [r.filename for r in self.results if r.phase_class == "single_phase"]
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {"results": [r.__dict__ for r in self.results]}
 
 
@@ -126,7 +124,7 @@ class ImageCleaner:
 
     def __init__(self, config):
         self.cfg = config
-        self._annotations: Dict[str, ImageAnnotation] = {}
+        self._annotations: dict[str, ImageAnnotation] = {}
         if config.annotations_path and Path(config.annotations_path).exists():
             self._load_annotations(config.annotations_path)
 
@@ -326,17 +324,17 @@ class ImageCleaner:
     # Claude Vision annotation
     # ------------------------------------------------------------------
 
-    def _annotate_batch(self, paths: List[Path]) -> None:
+    def _annotate_batch(self, paths: list[Path]) -> None:
         """
         Send images to Claude Vision and store results in self._annotations.
         Processes in batches of cfg.claude_batch_size to respect rate limits.
         """
         try:
             import anthropic
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "anthropic package required for claude backend: pip install anthropic"
-            )
+            ) from exc
 
         api_key = self.cfg.claude_api_key or os.getenv("ANTHROPIC_API_KEY")
         if not api_key:

@@ -2,7 +2,6 @@
 
 import math
 import os
-from typing import Dict, List, Tuple
 
 import joblib
 import matplotlib.pyplot as plt
@@ -26,8 +25,8 @@ def build_ensemble_models(
     n_targets: int = 1,
     n_estimators: int = 400,
     learning_rate: float = 0.1,
-    model_selection: List[str] = None
-) -> Dict:
+    model_selection: list[str] = None
+) -> dict:
     """
     Build ensemble regressor models.
 
@@ -106,9 +105,9 @@ def evaluate_model(
     model,
     X: np.ndarray,
     Y: np.ndarray,
-    target_columns: List[str],
+    target_columns: list[str],
     split_name: str = "val"
-) -> Tuple[Dict, np.ndarray, Dict]:
+) -> tuple[dict, np.ndarray, dict]:
     """
     Evaluate a model's predictions.
 
@@ -160,7 +159,7 @@ def compute_staged_metrics(
     Y_train: np.ndarray,
     X_val: np.ndarray,
     Y_val: np.ndarray
-) -> Dict[str, List[float]]:
+) -> dict[str, list[float]]:
     """
     Compute metrics at each iteration for boosting models using staged_predict.
 
@@ -197,7 +196,7 @@ def compute_staged_metrics(
     train_staged = list(reg.staged_predict(X_train_scaled))
     val_staged = list(reg.staged_predict(X_val_scaled))
 
-    for i, (y_train_pred, y_val_pred) in enumerate(zip(train_staged, val_staged)):
+    for i, (y_train_pred, y_val_pred) in enumerate(zip(train_staged, val_staged, strict=False)):
         history['iteration'].append(i + 1)
         history['train_r2'].append(r2_score(Y_train, y_train_pred))
         history['val_r2'].append(r2_score(Y_val, y_val_pred))
@@ -208,7 +207,7 @@ def compute_staged_metrics(
 
 
 def plot_learning_curves(
-    history: Dict[str, List[float]],
+    history: dict[str, list[float]],
     model_name: str,
     save_path: str = None,
     show: bool = True
@@ -263,7 +262,7 @@ def plot_learning_curves(
 
 
 def plot_model_comparison(
-    results: Dict[str, Dict[str, float]],
+    results: dict[str, dict[str, float]],
     save_path: str = None,
     show: bool = True
 ):
@@ -293,7 +292,7 @@ def plot_model_comparison(
         axes[idx].grid(True, alpha=0.3, axis='y')
 
         # Add value labels on bars
-        for bar, val in zip(bars, values):
+        for bar, val in zip(bars, values, strict=False):
             height = bar.get_height()
             axes[idx].annotate(f'{val:.3f}',
                              xy=(bar.get_x() + bar.get_width() / 2, height),
@@ -320,7 +319,7 @@ def plot_model_comparison(
 def plot_predictions(
     Y_true: np.ndarray,
     Y_pred: np.ndarray,
-    target_columns: List[str],
+    target_columns: list[str],
     save_path: str = None
 ) -> None:
     """
@@ -344,7 +343,7 @@ def plot_predictions(
     if n_targets == 1:
         axes = [axes]
 
-    for i, (ax, col) in enumerate(zip(axes, target_columns)):
+    for i, (ax, col) in enumerate(zip(axes, target_columns, strict=False)):
         y_true = Y_true[:, i]
         y_pred = Y_pred[:, i]
 
@@ -377,7 +376,7 @@ class ModelTrainer:
         config: Config,
         n_estimators: int = 400,
         learning_rate: float = 0.1,
-        model_selection: List[str] = None
+        model_selection: list[str] = None
     ):
         """
         Initialize the model trainer.
@@ -393,11 +392,11 @@ class ModelTrainer:
         self.learning_rate = learning_rate
         self.model_selection = model_selection
         self.models = None  # Built lazily when n_targets is known
-        self.fitted_models: Dict = {}
+        self.fitted_models: dict = {}
         self.best_model_name: str = None
         self.best_model = None
         self.n_targets: int = None
-        self.learning_histories: Dict[str, Dict] = {}  # Learning curves for boosting models
+        self.learning_histories: dict[str, dict] = {}  # Learning curves for boosting models
 
         # Set random seed
         np.random.seed(config.random_seed)
@@ -408,7 +407,7 @@ class ModelTrainer:
         Y: np.ndarray,
         test_size: float = 0.15,
         val_size: float = 0.15
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray,
                np.ndarray, np.ndarray, np.ndarray]:
         """
         Split data into train/val/test sets.
@@ -440,7 +439,7 @@ class ModelTrainer:
         Y_train: np.ndarray,
         X_val: np.ndarray,
         Y_val: np.ndarray,
-        target_columns: List[str],
+        target_columns: list[str],
         track_learning_curves: bool = True
     ) -> str:
         """
@@ -536,8 +535,8 @@ class ModelTrainer:
         self,
         X_test: np.ndarray,
         Y_test: np.ndarray,
-        target_columns: List[str]
-    ) -> Tuple[Dict, np.ndarray]:
+        target_columns: list[str]
+    ) -> tuple[dict, np.ndarray]:
         """
         Evaluate the best model on test set.
 
@@ -570,8 +569,8 @@ class ModelTrainer:
         self,
         X_test: np.ndarray,
         Y_test: np.ndarray,
-        target_columns: List[str]
-    ) -> Dict[str, Dict[str, float]]:
+        target_columns: list[str]
+    ) -> dict[str, dict[str, float]]:
         """
         Evaluate ALL fitted models on test set.
 

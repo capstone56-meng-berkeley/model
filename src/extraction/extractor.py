@@ -3,24 +3,22 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional
 
 import numpy as np
-import pandas as pd
 import torch
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 from tqdm import tqdm
 
-from .base import BaseBackbone
 from .backbones import BackboneRegistry, get_backbone
+from .base import BaseBackbone
 
 
 @dataclass
 class ExtractionConfig:
     """Configuration for feature extraction."""
-    backbones: List[str] = field(default_factory=lambda: ["vgg16"])
+    backbones: list[str] = field(default_factory=lambda: ["vgg16"])
     img_size: int = 224
     batch_size: int = 16
     num_workers: int = 2
@@ -33,7 +31,7 @@ class ImageDataset(Dataset):
 
     def __init__(
         self,
-        image_paths: List[str],
+        image_paths: list[str],
         transform=None
     ):
         self.image_paths = image_paths
@@ -42,7 +40,7 @@ class ImageDataset(Dataset):
     def __len__(self) -> int:
         return len(self.image_paths)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, str]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, str]:
         img_path = self.image_paths[idx]
         filename = os.path.basename(img_path)
 
@@ -77,7 +75,7 @@ class FeatureExtractor:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Initialize backbones from registry
-        self.backbones: List[BaseBackbone] = []
+        self.backbones: list[BaseBackbone] = []
         print(f"Initializing feature extractor on {self.device}...")
 
         for name in config.backbones:
@@ -103,8 +101,8 @@ class FeatureExtractor:
     @torch.no_grad()
     def extract_features(
         self,
-        image_paths: List[str]
-    ) -> Tuple[np.ndarray, List[str]]:
+        image_paths: list[str]
+    ) -> tuple[np.ndarray, list[str]]:
         """
         Extract features from images using all backbones.
 
@@ -145,7 +143,7 @@ class FeatureExtractor:
 
         return X, all_filenames
 
-    def _extract_sequential(self, imgs: torch.Tensor) -> List[np.ndarray]:
+    def _extract_sequential(self, imgs: torch.Tensor) -> list[np.ndarray]:
         """Extract features sequentially from each backbone."""
         batch_features = []
         for backbone in self.backbones:
@@ -153,7 +151,7 @@ class FeatureExtractor:
             batch_features.append(features.cpu().numpy())
         return batch_features
 
-    def _extract_parallel(self, imgs: torch.Tensor) -> List[np.ndarray]:
+    def _extract_parallel(self, imgs: torch.Tensor) -> list[np.ndarray]:
         """Extract features in parallel from multiple backbones."""
         def run_backbone(backbone: BaseBackbone) -> np.ndarray:
             features = backbone(imgs)
@@ -165,7 +163,7 @@ class FeatureExtractor:
 
         return batch_features
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         """Get feature names for each dimension."""
         names = []
         for backbone in self.backbones:
@@ -175,19 +173,19 @@ class FeatureExtractor:
         return names
 
     @classmethod
-    def list_available_backbones(cls) -> List[str]:
+    def list_available_backbones(cls) -> list[str]:
         """List all available backbone names."""
         return BackboneRegistry.list_available()
 
 
 def extract_image_features(
-    image_paths: List[str],
-    backbones: List[str] = None,
+    image_paths: list[str],
+    backbones: list[str] = None,
     img_size: int = 224,
     batch_size: int = 16,
-    cache_path: Optional[str] = None,
+    cache_path: str | None = None,
     parallel: bool = False
-) -> Tuple[np.ndarray, List[str]]:
+) -> tuple[np.ndarray, list[str]]:
     """
     Convenience function to extract image features.
 

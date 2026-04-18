@@ -48,7 +48,7 @@ import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Union
 
 _RUNS_DIR = Path(__file__).parent.parent / "runs"
 
@@ -70,12 +70,12 @@ class RunStore:
     def __init__(
         self,
         name: str,
-        base_dir: Optional[Union[str, Path]] = None,
+        base_dir: Union[str, Path] | None = None,
     ) -> None:
         self.name = name
         self.base_dir = Path(base_dir).resolve() if base_dir else _RUNS_DIR
-        self._run_dir: Optional[Path] = None
-        self._run_id: Optional[str] = None
+        self._run_dir: Path | None = None
+        self._run_id: str | None = None
 
     # ------------------------------------------------------------------
     # Properties
@@ -128,7 +128,7 @@ class RunStore:
     # Write helpers
     # ------------------------------------------------------------------
 
-    def write_manifest(self, data: Dict[str, Any]) -> Path:
+    def write_manifest(self, data: dict[str, Any]) -> Path:
         """
         Write *data* as ``manifest.json`` inside the current run directory.
 
@@ -138,7 +138,7 @@ class RunStore:
         Returns the path written.
         """
         dest = self.run_dir / "manifest.json"
-        existing: Dict = {}
+        existing: dict = {}
         if dest.exists():
             with open(dest) as f:
                 existing = json.load(f)
@@ -152,7 +152,7 @@ class RunStore:
             json.dump(existing, f, indent=2, default=_json_default)
         return dest
 
-    def copy_artifact(self, src: Union[str, Path], dest_name: Optional[str] = None) -> Path:
+    def copy_artifact(self, src: Union[str, Path], dest_name: str | None = None) -> Path:
         """
         Copy *src* into the current run directory.
 
@@ -169,7 +169,7 @@ class RunStore:
         shutil.copy2(src, dest)
         return dest
 
-    def append_history(self, row: Dict[str, Any]) -> Path:
+    def append_history(self, row: dict[str, Any]) -> Path:
         """
         Append one row to ``runs/<name>/history.csv``.
 
@@ -194,7 +194,7 @@ class RunStore:
         write_header = not path.exists() or path.stat().st_size == 0
 
         # If file exists, read existing columns to keep consistent ordering
-        existing_cols: List[str] = []
+        existing_cols: list[str] = []
         if not write_header:
             with open(path, newline="") as f:
                 reader = csv.reader(f)
@@ -237,9 +237,9 @@ def _json_default(obj: Any) -> Any:
     """JSON serialiser fallback for numpy scalars and similar."""
     try:
         import numpy as np
-        if isinstance(obj, (np.integer,)):
+        if isinstance(obj, np.integer):
             return int(obj)
-        if isinstance(obj, (np.floating,)):
+        if isinstance(obj, np.floating):
             return float(obj)
         if isinstance(obj, np.ndarray):
             return obj.tolist()
@@ -250,14 +250,14 @@ def _json_default(obj: Any) -> Any:
 
 def _rewrite_csv_with_new_cols(
     path: Path,
-    new_cols: List[str],
-    new_row: Dict[str, Any],
+    new_cols: list[str],
+    new_row: dict[str, Any],
 ) -> None:
     """
     Re-write *path* with *new_cols* as the header, appending *new_row*.
     Existing rows get empty strings for any previously-absent columns.
     """
-    rows: List[Dict] = []
+    rows: list[dict] = []
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         for r in reader:
