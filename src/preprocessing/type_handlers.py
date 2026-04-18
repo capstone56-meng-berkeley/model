@@ -1,15 +1,15 @@
 """Type handler implementations for different column data types."""
 
 import warnings
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from ..registry import Registry
-from .base import BaseTypeHandler, BaseImputer, BaseEncoder, BaseScaler
-from .imputers import ImputerRegistry
+from .base import BaseEncoder, BaseImputer, BaseScaler, BaseTypeHandler
 from .encoders import EncoderRegistry
+from .imputers import ImputerRegistry
 from .scalers import ScalerRegistry
 
 TYPE_NUMERIC = "numeric"        # int8/16/32/64, uint8/16/32/64, float16/32/64
@@ -32,9 +32,9 @@ class NumericHandler(BaseTypeHandler):
     def __init__(
         self,
         column_name: str,
-        imputer: Optional[BaseImputer] = None,
-        encoder: Optional[BaseEncoder] = None,
-        scaler: Optional[BaseScaler] = None,
+        imputer: BaseImputer | None = None,
+        encoder: BaseEncoder | None = None,
+        scaler: BaseScaler | None = None,
         impute_strategy: str = "mean",
         scale_method: str = "standard",
         **kwargs
@@ -112,9 +112,9 @@ class CategoricalHandler(BaseTypeHandler):
     def __init__(
         self,
         column_name: str,
-        imputer: Optional[BaseImputer] = None,
-        encoder: Optional[BaseEncoder] = None,
-        scaler: Optional[BaseScaler] = None,
+        imputer: BaseImputer | None = None,
+        encoder: BaseEncoder | None = None,
+        scaler: BaseScaler | None = None,
         impute_strategy: str = "mode",
         encode_method: str = "onehot",
         max_categories: int = 50,
@@ -190,9 +190,9 @@ class TextHandler(BaseTypeHandler):
     def __init__(
         self,
         column_name: str,
-        imputer: Optional[BaseImputer] = None,
-        encoder: Optional[BaseEncoder] = None,
-        scaler: Optional[BaseScaler] = None,
+        imputer: BaseImputer | None = None,
+        encoder: BaseEncoder | None = None,
+        scaler: BaseScaler | None = None,
         encode_method: str = "tfidf",
         max_features: int = 100,
         **kwargs
@@ -262,9 +262,9 @@ class UniqueStringHandler(BaseTypeHandler):
     def __init__(
         self,
         column_name: str,
-        imputer: Optional[BaseImputer] = None,
-        encoder: Optional[BaseEncoder] = None,
-        scaler: Optional[BaseScaler] = None,
+        imputer: BaseImputer | None = None,
+        encoder: BaseEncoder | None = None,
+        scaler: BaseScaler | None = None,
         encode_method: str = "skip",
         **kwargs
     ):
@@ -324,20 +324,20 @@ class UniqueStringHandler(BaseTypeHandler):
 class BooleanHandler(BaseTypeHandler):
     """Handler for boolean columns."""
 
-    _BOOL_MAP: Dict[Any, int] = {
+    _BOOL_MAP: dict[Any, int] = {
         True: 1, False: 0,
         'True': 1, 'False': 0,
         'true': 1, 'false': 0,
         '1': 1, '0': 0,
-        1: 1, 0: 0,
+        # Note: int 1/0 map identically to bool True/False (same hash); kept explicit for clarity
     }
 
     def __init__(
         self,
         column_name: str,
-        imputer: Optional[BaseImputer] = None,
-        encoder: Optional[BaseEncoder] = None,
-        scaler: Optional[BaseScaler] = None,
+        imputer: BaseImputer | None = None,
+        encoder: BaseEncoder | None = None,
+        scaler: BaseScaler | None = None,
         impute_strategy: str = "mode",
         **kwargs
     ):
@@ -357,7 +357,8 @@ class BooleanHandler(BaseTypeHandler):
             bad_vals = series[unmapped].unique().tolist()
             warnings.warn(
                 f"BooleanHandler '{self.column_name}': {unmapped.sum()} value(s) not in "
-                f"bool map will be treated as missing: {bad_vals}"
+                f"bool map will be treated as missing: {bad_vals}",
+                stacklevel=2,
             )
         return mapped.astype(float)
 

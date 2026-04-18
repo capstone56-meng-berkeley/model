@@ -41,11 +41,12 @@ from src.model_trainer import (
     plot_model_comparison,
     plot_predictions,
 )
-from src.config import EncodingConfig, MissingDataConfig, PreprocessingConfig, ScalingConfig
+from src.config import EncodingConfig, MissingDataConfig, PreprocessingConfig, ScalingConfig, ImageCleaningConfig
 from src.preprocessing import FeaturePreprocessor
 from src.column_sanitizer import sanitize_dataframe, sanitize_column
 from src.extraction.morphology import MorphologicalExtractor
 from src.extraction.morphology_config import MorphologyConfig
+from src.image_cleaner import ImageCleaner
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +83,12 @@ def parse_env():
         "morph_cache_path": os.getenv("MORPH_CACHE_PATH", "features/morph_features.npz"),
         # Directory containing downloaded images for morphological extraction.
         "images_dir": os.getenv("IMAGES_DIR", os.path.join("data", "temp_images")),
+        # Image cleaning backend: "classical" (default) or "claude"
+        "cleaning_backend": os.getenv("CLEANING_BACKEND", "classical"),
+        # Output directory for cleaned images (used as images_dir for downstream steps)
+        "cleaning_output_dir": os.getenv("CLEANING_OUTPUT_DIR", os.path.join("data", "images_cleaned")),
+        # Set to "1" to skip cleaning and use images_dir directly
+        "skip_cleaning": os.getenv("SKIP_CLEANING", "0") == "1",
     }
 
 
@@ -183,18 +190,18 @@ def main():
     print("=" * 60)
 
     # -- Print config -------------------------------------------------------
-    print("\n[1/9] Configuration")  # steps: config, load, targets, split, tabular, morph, cnn, combine, train
+    print("\n[1/10] Configuration")  # steps: config, load, targets, split, tabular, clean, morph, cnn, combine, train
     for k, v in env.items():
         print(f"  {k}: {v}")
 
     # -- Load data ----------------------------------------------------------
-    print("\n[2/9] Loading data...")
+    print("\n[2/10] Loading data...")
     df = load_data(env)
 
     # -- Resolve target columns ---------------------------------------------
     # Columns are already sanitized by load_data(); sanitize the env var
     # values too so raw names passed via TARGET_COLUMNS env var still work.
-    print("\n[3/9] Resolving target columns...")
+    print("\n[3/10] Resolving target columns...")
     resolved_targets = []
     for pattern in env["target_columns"]:
         col = sanitize_column(pattern)
@@ -216,7 +223,7 @@ def main():
     target_names = [re.sub(r"\s+", " ", c).strip() for c in env["target_columns"]]
 
     # -- Split rows BEFORE any preprocessing (prevents MICE/imputer leakage) --
-    print("\n[4/9] Splitting data...")
+    print("\n[4/10] Splitting data...")
     from sklearn.model_selection import train_test_split as _tts
 
     idx = np.arange(len(df_filtered))
@@ -235,7 +242,7 @@ def main():
     print(f"  Split: train={len(df_train)}, val={len(df_val)}, test={len(df_test)}")
 
     # -- Tabular features ---------------------------------------------------
-    print("\n[5/9] Preprocessing tabular features...")
+    print("\n[5/10] Preprocessing tabular features...")
     feature_cols = [c for c in CHEMICAL_COLUMNS if c in df_filtered.columns]
     print(f"  Chemical input features: {len(feature_cols)}")
 
@@ -264,13 +271,41 @@ def main():
     X_tab_test  = preprocessor.transform(df_test[feature_cols].copy())
     print(f"  Tabular features after preprocessing: {X_tab_train.shape[1]}")
 
+    # -- Image cleaning -----------------------------------------------------
+    print("\n[6/10] Image cleaning...")
+
+    raw_images_dir     = env["images_dir"]
+    cleaning_output_dir = env["cleaning_output_dir"]
+
+    if env["skip_cleaning"]:
+        images_dir = raw_images_dir
+        print(f"  Skipping (SKIP_CLEANING=1) — using raw images from {images_dir}")
+    elif not os.path.isdir(raw_images_dir) or not any(
+        f.endswith((".jpg", ".jpeg", ".png"))
+        for f in os.listdir(raw_images_dir)
+    ):
+        images_dir = raw_images_dir
+        print(f"  No images found in {raw_images_dir} — skipping cleaning")
+    else:
+        cleaning_cfg = ImageCleaningConfig(
+            backend=env["cleaning_backend"],
+            output_dir=cleaning_output_dir,
+        )
+        cleaner = ImageCleaner(cleaning_cfg)
+        clean_report = cleaner.clean_directory(
+            raw_images_dir, cleaning_output_dir, force=False
+        )
+        print(clean_report.summary())
+        non_dp = clean_report.non_dp_images()
+        if non_dp:
+            print(f"  Non-DP images flagged (will be median-imputed): {len(non_dp)}")
+        images_dir = cleaning_output_dir
+
     # -- Morphological features ---------------------------------------------
-    print("\n[6/9] Morphological features...")
+    print("\n[7/10] Morphological features...")
 
     X_morph_train = X_morph_val = X_morph_test = None
     morph_feature_names = []
-
-    images_dir = env.get("images_dir", os.path.join("data", "temp_images"))
     _F_RE_M = re.compile(r'_F_\d+\.[a-z]+$', re.IGNORECASE)
 
     def _img_key_m(path):
@@ -342,7 +377,7 @@ def main():
         print(f"  Morphological features: {X_morph_train.shape[1]}")
 
     # -- CNN image features -------------------------------------------------
-    print("\n[7/9] CNN image features...")
+    print("\n[8/10] CNN image features...")
 
     _F_RE_IMG = re.compile(r'_F_\d+\.[a-z]+$', re.IGNORECASE)
 
@@ -399,7 +434,7 @@ def main():
         print("  No CNN image cache available — continuing without CNN features")
 
     # -- Combine features ---------------------------------------------------
-    print("\n[8/9] Combining features...")
+    print("\n[9/10] Combining features...")
 
     parts_train, parts_val, parts_test = [], [], []
     dim_log = []
@@ -444,7 +479,7 @@ def main():
         print(f"  Explained variance: {explained:.1%}")
 
     # -- Train --------------------------------------------------------------
-    print("\n[9/9] Training models...")
+    print("\n[10/10] Training models...")
     config = Config(random_seed=env["random_seed"], model_dir=run_dir)
     trainer = ModelTrainer(
         config,

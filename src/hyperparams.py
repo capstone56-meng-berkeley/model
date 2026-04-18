@@ -45,7 +45,7 @@ import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 _STORE_PATH = Path(__file__).parent.parent / "runs" / "hyperparams.json"
 
@@ -63,14 +63,14 @@ def _git_commit() -> str:
         return "unknown"
 
 
-def _load_store(path: Path) -> Dict[str, Any]:
+def _load_store(path: Path) -> dict[str, Any]:
     if path.exists() and path.stat().st_size > 0:
         with open(path) as f:
             return json.load(f)
     return {}
 
 
-def _write_store(store: Dict[str, Any], path: Path) -> None:
+def _write_store(store: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(store, f, indent=2)
@@ -80,11 +80,11 @@ def _write_store(store: Dict[str, Any], path: Path) -> None:
 
 def save(
     scope: str,
-    models_dict: Dict[str, Dict],
+    models_dict: dict[str, dict],
     n_trials: int = 0,
     cv_protocol: str = "",
-    feature_matrix_shape: Optional[Tuple[int, int]] = None,
-    store_path: Optional[Path] = None,
+    feature_matrix_shape: tuple[int, int] | None = None,
+    store_path: Path | None = None,
 ) -> Path:
     """
     Persist tuning results for *scope* to the hyperparameter store.
@@ -132,7 +132,7 @@ def save(
     return path
 
 
-def load(scope: str, store_path: Optional[Path] = None) -> Dict[str, Dict]:
+def load(scope: str, store_path: Path | None = None) -> dict[str, dict]:
     """
     Return the ``models`` dict for *scope*, or an empty dict if not found.
 
@@ -151,8 +151,8 @@ def load(scope: str, store_path: Optional[Path] = None) -> Dict[str, Dict]:
 
 def best_model(
     scope: str,
-    store_path: Optional[Path] = None,
-) -> Tuple[Optional[str], Optional[Dict]]:
+    store_path: Path | None = None,
+) -> tuple[str | None, dict | None]:
     """
     Return ``(model_name, params)`` for the best tuned model in *scope*.
 
@@ -173,21 +173,21 @@ def best_model(
 def has_params(
     scope: str,
     model_name: str,
-    store_path: Optional[Path] = None,
+    store_path: Path | None = None,
 ) -> bool:
     """Return True if tuned params exist for *model_name* in *scope*."""
     models = load(scope, store_path)
     return model_name in models and "params" in models[model_name]
 
 
-def list_scopes(store_path: Optional[Path] = None) -> list:
+def list_scopes(store_path: Path | None = None) -> list:
     """Return all scope names currently in the store."""
     path  = Path(store_path) if store_path else _STORE_PATH
     store = _load_store(path)
     return list(store.keys())
 
 
-def summary(store_path: Optional[Path] = None) -> str:
+def summary(store_path: Path | None = None) -> str:
     """Return a human-readable summary of the store contents."""
     path  = Path(store_path) if store_path else _STORE_PATH
     store = _load_store(path)

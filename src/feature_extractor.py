@@ -1,14 +1,13 @@
 """CNN feature extraction using dual backbone (ResNet50 + VGG16)."""
 
 import os
-from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import models
 from torchvision import transforms as T
 from tqdm import tqdm
@@ -36,9 +35,9 @@ class MicrographDataset(Dataset):
 
     def __init__(
         self,
-        image_paths: List[str],
+        image_paths: list[str],
         labels_df: pd.DataFrame = None,
-        label_columns: List[str] = None,
+        label_columns: list[str] = None,
         transform=None
     ):
         """
@@ -64,7 +63,7 @@ class MicrographDataset(Dataset):
     def __len__(self) -> int:
         return len(self.image_paths)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, np.ndarray, str]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, np.ndarray, str]:
         img_path = self.image_paths[idx]
         filename = os.path.basename(img_path)
 
@@ -94,7 +93,7 @@ class MicrographDataset(Dataset):
 def build_feature_backbone(
     backbone_name: str,
     device: torch.device
-) -> Tuple[nn.Module, int]:
+) -> tuple[nn.Module, int]:
     """
     Build a pretrained CNN backbone for feature extraction.
 
@@ -173,10 +172,10 @@ class FeatureExtractor:
     @torch.no_grad()
     def extract_features(
         self,
-        image_paths: List[str],
+        image_paths: list[str],
         labels_df: pd.DataFrame = None,
-        label_columns: List[str] = None
-    ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+        label_columns: list[str] = None
+    ) -> tuple[np.ndarray, np.ndarray, list[str]]:
         """
         Extract features from images using dual CNN backbone.
 
@@ -230,11 +229,11 @@ class FeatureExtractor:
 
     def load_or_extract_features(
         self,
-        image_paths: List[str],
+        image_paths: list[str],
         labels_df: pd.DataFrame = None,
-        label_columns: List[str] = None,
+        label_columns: list[str] = None,
         cache_path: str = None
-    ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    ) -> tuple[np.ndarray, np.ndarray, list[str]]:
         """
         Load cached features or extract new ones.
 

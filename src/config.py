@@ -3,7 +3,6 @@
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 
@@ -19,8 +18,8 @@ class LocalConfig:
 class GoogleDriveConfig:
     """Configuration for Google Drive data source."""
     row_id_column: str = "A"
-    image_columns: List[str] = field(default_factory=lambda: ["D", "E", "F"])
-    column_types: Dict[str, str] = field(default_factory=lambda: {
+    image_columns: list[str] = field(default_factory=lambda: ["D", "E", "F"])
+    column_types: dict[str, str] = field(default_factory=lambda: {
         "D": "image",
         "E": "image",
         "F": "folder"
@@ -65,16 +64,60 @@ class PreprocessingConfig:
 @dataclass
 class FeaturesConfig:
     """Configuration for feature and label columns."""
-    feature_columns: List[str] = field(default_factory=list)
-    label_columns: List[str] = field(default_factory=list)
-    column_types: Dict[str, str] = field(default_factory=dict)
+    feature_columns: list[str] = field(default_factory=list)
+    label_columns: list[str] = field(default_factory=list)
+    column_types: dict[str, str] = field(default_factory=dict)
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
+
+
+@dataclass
+class ImageCleaningConfig:
+    """Configuration for SEM image cleaning pipeline."""
+    # Which backend to use: "classical" (default) or "claude"
+    backend: str = "classical"
+
+    # Output image size (square) after resize
+    output_size: int = 512
+
+    # --- Scale-bar detection (classical backend) ---
+    # Factor × median row-gradient to declare a scale-bar edge
+    gradient_threshold_factor: float = 3.0
+    # Rows to subtract from the detected edge as a safety buffer
+    edge_buffer_px: int = 4
+    # Fraction of image height to crop from the bottom when no edge detected
+    fallback_crop_fraction: float = 0.12
+
+    # --- CLAHE ---
+    clahe_enabled: bool = True
+    clahe_clip_limit: float = 2.0
+    clahe_tile_size: int = 8
+
+    # --- Bilateral denoising ---
+    denoise_enabled: bool = True
+    bilateral_d: int = 5
+    bilateral_sigma_color: float = 30.0
+    bilateral_sigma_space: float = 30.0
+
+    # --- Quality gate ---
+    min_std: float = 8.0          # Reject blank / overexposed output
+    min_height_px: int = 128      # Reject images with too little content after crop
+
+    # --- Claude Vision backend ---
+    claude_model: str = "claude-haiku-4-5-20251001"
+    claude_api_key: str | None = None   # Falls back to ANTHROPIC_API_KEY env var
+    claude_batch_size: int = 10            # Images per annotation batch
+    # Path to persist/reuse Claude annotations (JSON sidecar).
+    # Set to "" to disable caching.
+    annotations_path: str = "data/scale_bar_annotations.json"
+
+    # --- Output ---
+    output_dir: str = "data/images_cleaned"
 
 
 @dataclass
 class ExtractionConfig:
     """Configuration for image feature extraction."""
-    backbones: List[str] = field(default_factory=lambda: ["vgg16"])
+    backbones: list[str] = field(default_factory=lambda: ["vgg16"])
     pooling: str = "avg"
     parallel: bool = False  # Run multiple backbones in parallel
 
@@ -115,8 +158,11 @@ class Config:
     # Image feature extraction config
     extraction: ExtractionConfig = field(default_factory=ExtractionConfig)
 
+    # Image cleaning config
+    image_cleaning: ImageCleaningConfig = field(default_factory=ImageCleaningConfig)
+
     # Environment variables (loaded from .env)
-    sheet_id: Optional[str] = None
+    sheet_id: str | None = None
     worksheet_name: str = "Sheet1"
     credentials_path: str = "credentials.json"
     token_path: str = "token.json"
@@ -156,7 +202,7 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
     # Load JSON config
     config_data = {}
     if os.path.exists(config_path):
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config_data = json.load(f)
 
     # Parse nested configs
@@ -224,6 +270,30 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
         parallel=extraction_data.get("parallel", False)
     )
 
+    # Parse image cleaning config
+    cleaning_data = config_data.get("image_cleaning", {})
+    cleaning_config = ImageCleaningConfig(
+        backend=cleaning_data.get("backend", "classical"),
+        output_size=cleaning_data.get("output_size", 512),
+        gradient_threshold_factor=cleaning_data.get("gradient_threshold_factor", 3.0),
+        edge_buffer_px=cleaning_data.get("edge_buffer_px", 4),
+        fallback_crop_fraction=cleaning_data.get("fallback_crop_fraction", 0.12),
+        clahe_enabled=cleaning_data.get("clahe_enabled", True),
+        clahe_clip_limit=cleaning_data.get("clahe_clip_limit", 2.0),
+        clahe_tile_size=cleaning_data.get("clahe_tile_size", 8),
+        denoise_enabled=cleaning_data.get("denoise_enabled", True),
+        bilateral_d=cleaning_data.get("bilateral_d", 5),
+        bilateral_sigma_color=cleaning_data.get("bilateral_sigma_color", 30.0),
+        bilateral_sigma_space=cleaning_data.get("bilateral_sigma_space", 30.0),
+        min_std=cleaning_data.get("min_std", 8.0),
+        min_height_px=cleaning_data.get("min_height_px", 128),
+        claude_model=cleaning_data.get("claude_model", "claude-haiku-4-5-20251001"),
+        claude_api_key=cleaning_data.get("claude_api_key") or os.getenv("ANTHROPIC_API_KEY"),
+        claude_batch_size=cleaning_data.get("claude_batch_size", 10),
+        annotations_path=cleaning_data.get("annotations_path", "data/scale_bar_annotations.json"),
+        output_dir=cleaning_data.get("output_dir", "data/images_cleaned"),
+    )
+
     # Build main config
     config = Config(
         data_source=config_data.get("data_source", "drive"),
@@ -239,6 +309,7 @@ def load_config(config_path: str = "config.json", env_path: str = ".env") -> Con
         google_drive=drive_config,
         features=features_config,
         extraction=extraction_config,
+        image_cleaning=cleaning_config,
         # Environment variables
         sheet_id=os.getenv("GOOGLE_SHEET_ID"),
         worksheet_name=os.getenv("GOOGLE_WORKSHEET_NAME", "Sheet1"),

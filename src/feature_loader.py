@@ -1,6 +1,5 @@
 """Feature loader scaffold for retrieving features/labels from Google Sheet."""
 
-from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -37,8 +36,8 @@ class FeatureLoader:
     def load_features(
         self,
         row_id_column: str,
-        feature_columns: List[str],
-        label_columns: List[str],
+        feature_columns: list[str],
+        label_columns: list[str],
         skip_header: bool = True
     ) -> pd.DataFrame:
         """
@@ -104,7 +103,7 @@ class FeatureLoader:
 
         return pd.DataFrame(records)
 
-    def _parse_value(self, value: Optional[str]) -> Optional[float]:
+    def _parse_value(self, value: str | None) -> float | None:
         """
         Parse a cell value to numeric.
 
@@ -127,7 +126,7 @@ class FeatureLoader:
             # Return as string if not numeric
             return value
 
-    def get_available_columns(self) -> List[str]:
+    def get_available_columns(self) -> list[str]:
         """
         Get list of available column headers.
 

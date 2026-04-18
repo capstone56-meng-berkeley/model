@@ -20,7 +20,6 @@ and literature references.
 import logging
 import math
 import os
-from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -32,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Feature name definition (order must match _compute_features return order)
 # ---------------------------------------------------------------------------
 
-_FEATURE_NAMES: List[str] = [
+_FEATURE_NAMES: list[str] = [
     # Phase fractions (stage 2)
     "morph_martensite_fraction",
     "morph_ferrite_fraction",
@@ -98,7 +97,7 @@ class MorphologicalExtractor:
     to ``config.cache_path`` as an .npz file on first run.
     """
 
-    def __init__(self, config: Optional[MorphologyConfig] = None):
+    def __init__(self, config: MorphologyConfig | None = None):
         self.config = config or MorphologyConfig()
 
     # ------------------------------------------------------------------
@@ -107,9 +106,9 @@ class MorphologicalExtractor:
 
     def extract(
         self,
-        image_paths: List[str],
+        image_paths: list[str],
         use_cache: bool = True,
-    ) -> Tuple[np.ndarray, List[str]]:
+    ) -> tuple[np.ndarray, list[str]]:
         """
         Extract morphological features for a list of images.
 
@@ -162,7 +161,7 @@ class MorphologicalExtractor:
             return np.full(_N_FEATURES, np.nan, dtype=np.float64)
 
     @staticmethod
-    def get_feature_names() -> List[str]:
+    def get_feature_names() -> list[str]:
         """Return ordered list of feature names."""
         return list(_FEATURE_NAMES)
 
@@ -270,7 +269,7 @@ class MorphologicalExtractor:
 def _load_grayscale(
     path: str,
     img_size: int,
-    scale_bar_mask: Tuple[float, float],
+    scale_bar_mask: tuple[float, float],
 ) -> np.ndarray:
     """
     Load image as float64 grayscale in [0, 1], resize, and mask scale bar.
@@ -312,7 +311,7 @@ def _segment_phases(
     otsu_fallback_gmm: bool,
     fraction_min: float,
     fraction_max: float,
-) -> Tuple[np.ndarray, float]:
+) -> tuple[np.ndarray, float]:
     """
     Segment martensite (bright) from ferrite (dark) using Otsu thresholding.
 
@@ -461,7 +460,7 @@ def _kurtosis(x: np.ndarray) -> float:
     return float(np.mean(((x - mu) / sigma) ** 4) - 3.0)  # excess kurtosis
 
 
-def _nearest_neighbour_distances(centroids: np.ndarray) -> Tuple[float, float]:
+def _nearest_neighbour_distances(centroids: np.ndarray) -> tuple[float, float]:
     """
     Compute mean and std of nearest-neighbour distances between centroids.
 
@@ -503,7 +502,7 @@ def _boundary_features(
     sigma: float,
     low: float,
     high: float,
-) -> Tuple[float, float, float]:
+) -> tuple[float, float, float]:
     """
     Compute boundary density, mean boundary width, and banding index.
 
@@ -512,9 +511,9 @@ def _boundary_features(
         boundary_mean_width: mean width of pre-skeleton edge regions (pixels)
         banding_index:      horizontal edge density / vertical edge density
     """
+    import numpy as np
     from skimage.feature import canny
     from skimage.morphology import skeletonize
-    import numpy as np
 
     # Full-image edges
     edges = canny(img, sigma=sigma, low_threshold=low, high_threshold=high)
@@ -534,8 +533,7 @@ def _boundary_features(
     # Banding index — directional Canny
     # Horizontal edges: gradient strongest in vertical direction (sobel_h)
     # Vertical edges: gradient strongest in horizontal direction (sobel_v)
-    from skimage.filters import sobel_h, sobel_v
-    from skimage.filters import gaussian
+    from skimage.filters import gaussian, sobel_h, sobel_v
 
     smoothed = gaussian(img, sigma=sigma)
     horiz_mag = np.abs(sobel_h(smoothed))  # responds to horizontal boundaries
@@ -554,8 +552,8 @@ def _boundary_features(
 
 def _glcm_features(
     img: np.ndarray,
-    distances: Tuple[int, ...],
-    angles_deg: Tuple[float, ...],
+    distances: tuple[int, ...],
+    angles_deg: tuple[float, ...],
     levels: int,
 ) -> dict:
     """
@@ -592,15 +590,15 @@ def _lbp_features(
     img: np.ndarray,
     radius: int,
     n_points: int,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Compute LBP histogram entropy and uniformity.
 
     Uniformity = fraction of LBP codes with ≤ 2 bitwise 0→1 transitions
     (the "uniform" patterns that dominate smooth / equiaxed regions).
     """
-    from skimage.feature import local_binary_pattern
     from scipy.stats import entropy as scipy_entropy
+    from skimage.feature import local_binary_pattern
 
     img_uint8 = (img * 255).clip(0, 255).astype(np.uint8)
     lbp = local_binary_pattern(img_uint8, n_points, radius, method="uniform")
@@ -619,7 +617,7 @@ def _lbp_features(
     return lbp_entropy, uniform_fraction
 
 
-def _local_contrast(img: np.ndarray, patch_size: int) -> Tuple[float, float]:
+def _local_contrast(img: np.ndarray, patch_size: int) -> tuple[float, float]:
     """
     Compute mean and std of local standard deviation over sliding patches.
 

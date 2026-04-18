@@ -1,7 +1,7 @@
 """Abstract base classes for preprocessing components."""
 
 from abc import ABC, abstractmethod
-from typing import List, Any, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -64,7 +64,7 @@ class BaseEncoder(ABC):
     def __init__(self, **kwargs):
         """Initialize encoder with optional parameters."""
         self._fitted = False
-        self._feature_names: List[str] = []
+        self._feature_names: list[str] = []
 
     @abstractmethod
     def fit(self, series: pd.Series) -> 'BaseEncoder':
@@ -93,7 +93,7 @@ class BaseEncoder(ABC):
         pass
 
     @abstractmethod
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         """
         Get output feature names after encoding.
 
@@ -171,9 +171,9 @@ class BaseTypeHandler(ABC):
     def __init__(
         self,
         column_name: str,
-        imputer: Optional[BaseImputer] = None,
-        encoder: Optional[BaseEncoder] = None,
-        scaler: Optional[BaseScaler] = None,
+        imputer: BaseImputer | None = None,
+        encoder: BaseEncoder | None = None,
+        scaler: BaseScaler | None = None,
         **kwargs
     ):
         """
@@ -190,7 +190,7 @@ class BaseTypeHandler(ABC):
         self.encoder = encoder
         self.scaler = scaler
         self._fitted = False
-        self._feature_names: List[str] = []
+        self._feature_names: list[str] = []
 
     @abstractmethod
     def fit(self, series: pd.Series) -> 'BaseTypeHandler':
@@ -222,7 +222,7 @@ class BaseTypeHandler(ABC):
         """Fit and transform in one step."""
         return self.fit(series).transform(series)
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         """Get output feature names."""
         return self._feature_names
 

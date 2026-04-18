@@ -1,7 +1,7 @@
 """Extensible image feature extraction pipeline."""
 
-from .base import BaseBackbone
 from .backbones import BackboneRegistry
+from .base import BaseBackbone
 from .extractor import FeatureExtractor
 from .morphology import MorphologicalExtractor
 from .morphology_config import MorphologyConfig

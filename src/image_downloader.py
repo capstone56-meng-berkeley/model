@@ -1,7 +1,6 @@
 """Image downloader for fetching images from Google Drive."""
 
 import os
-from typing import List, Optional
 
 from .config import ensure_dir
 from .drive_client import GoogleDriveClient
@@ -32,8 +31,8 @@ class ImageDownloader:
 
     def download_all(
         self,
-        image_references: List[ImageReference]
-    ) -> List[str]:
+        image_references: list[ImageReference]
+    ) -> list[str]:
         """
         Download all images from the given references.
 
@@ -68,8 +67,8 @@ class ImageDownloader:
         self,
         ref: ImageReference,
         index: int = 0,
-        original_name: Optional[str] = None
-    ) -> Optional[str]:
+        original_name: str | None = None
+    ) -> str | None:
         """
         Download a single image.
 
@@ -107,7 +106,7 @@ class ImageDownloader:
             print(f"  ✗ Failed to download {ref.drive_id}: {e}")
             return None
 
-    def _download_folder(self, ref: ImageReference) -> List[str]:
+    def _download_folder(self, ref: ImageReference) -> list[str]:
         """
         Download all images from a folder.
 

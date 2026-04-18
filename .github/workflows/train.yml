@@ -51,6 +51,14 @@ on:
         description: 'PCA components after combining features (0 = disabled, 20-50 recommended for n<200)'
         type: string
         default: '0'
+      images_dir:
+        description: 'Directory of raw SEM images (blank = skip image cleaning + morphological features)'
+        type: string
+        default: ''
+      cleaning_backend:
+        description: 'Image cleaning backend: classical (default) or claude (requires ANTHROPIC_API_KEY secret)'
+        type: string
+        default: 'classical'
 
 jobs:
   train:
@@ -70,6 +78,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Clean images
+        if: inputs.images_dir != ''
+        id: clean_images
+        run: |
+          python clean_images.py \
+            --input  "${{ inputs.images_dir }}" \
+            --output data/images_cleaned \
+            --backend "${{ inputs.cleaning_backend }}" \
+            --report  runs/clean_report.json
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
       - name: Run training pipeline
         run: python run_training.py
         env:
@@ -85,14 +105,57 @@ jobs:
           IMPUTER_STRATEGY: ${{ inputs.imputer_strategy }}
           IMAGE_CACHE_PATH: ${{ inputs.image_cache_path }}
           PCA_COMPONENTS: ${{ inputs.pca_components }}
+          IMAGES_DIR: ${{ inputs.images_dir != '' && 'data/images_cleaned' || '' }}
+          CLEANING_BACKEND: ${{ inputs.cleaning_backend }}
+          SKIP_CLEANING: "1"
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDENTIALS_PATH: ${{ secrets.GOOGLE_CREDENTIALS_PATH }}
           GOOGLE_TOKEN_PATH: ${{ secrets.GOOGLE_TOKEN_PATH }}
 
-      - name: Upload run artifacts
+      - name: Find best model artifact
+        id: find_model
+        run: |
+          # Locate the most recently written best_model.joblib under runs/
+          MODEL_PATH=$(find runs/ -name "best_model.joblib" -printf "%T@ %p\n" 2>/dev/null \
+            | sort -n | tail -1 | awk '{print $2}')
+          if [ -z "$MODEL_PATH" ]; then
+            echo "No best_model.joblib found — skipping model upload"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true"  >> "$GITHUB_OUTPUT"
+            echo "path=$MODEL_PATH" >> "$GITHUB_OUTPUT"
+            # Derive run_id from directory name (runs/<family>/<run_id>/best_model.joblib)
+            RUN_ID=$(basename "$(dirname "$MODEL_PATH")")
+            echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+            # Copy manifest alongside so the artifact is self-describing
+            MANIFEST="$(dirname "$MODEL_PATH")/manifest.json"
+            if [ -f "$MANIFEST" ]; then
+              cp "$MANIFEST" "model_manifest.json"
+            fi
+          fi
+
+      - name: Upload best model
+        uses: actions/upload-artifact@v4
+        if: steps.find_model.outputs.found == 'true'
+        with:
+          name: model-${{ steps.find_model.outputs.run_id }}
+          path: |
+            ${{ steps.find_model.outputs.path }}
+            model_manifest.json
+          retention-days: 90
+
+      - name: Upload clean report
+        uses: actions/upload-artifact@v4
+        if: inputs.images_dir != '' && always()
+        with:
+          name: clean-report-${{ github.run_id }}
+          path: runs/clean_report.json
+          retention-days: 30
+
+      - name: Upload full run directory
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: training-run-${{ github.run_id }}
           path: runs/
-          retention-days: 90
+          retention-days: 30

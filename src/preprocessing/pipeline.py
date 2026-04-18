@@ -1,20 +1,19 @@
 """Feature preprocessing pipeline orchestrator."""
 
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from ..config import MissingDataConfig, ScalingConfig, EncodingConfig, PreprocessingConfig
+from ..config import PreprocessingConfig
 from .base import BaseTypeHandler
-from .type_handlers import TypeHandlerRegistry, get_type_handler
 from .type_handlers import (
-    TYPE_NUMERIC,
+    TYPE_BOOLEAN,
     TYPE_CATEGORICAL,
+    TYPE_DATETIME,
+    TYPE_NUMERIC,
     TYPE_TEXT,
     TYPE_UNIQUE_STRING,
-    TYPE_BOOLEAN,
-    TYPE_DATETIME,
+    get_type_handler,
 )
 
 
@@ -31,9 +30,9 @@ class FeaturePreprocessor:
     def __init__(
         self,
         config: PreprocessingConfig,
-        column_types: Optional[Dict[str, str]] = None,
-        mice_columns: Optional[List[str]] = None,
-        indicator_columns: Optional[List[str]] = None,
+        column_types: dict[str, str] | None = None,
+        mice_columns: list[str] | None = None,
+        indicator_columns: list[str] | None = None,
     ):
         """
         Initialize the preprocessor.
@@ -52,13 +51,13 @@ class FeaturePreprocessor:
                                Use for structurally-absent elements (Ti, Nb, V).
         """
         self.config = config
-        self._column_type_overrides: Dict[str, str] = column_types or {}
-        self._mice_columns: List[str] = mice_columns or []
-        self._indicator_columns: List[str] = indicator_columns or []
+        self._column_type_overrides: dict[str, str] = column_types or {}
+        self._mice_columns: list[str] = mice_columns or []
+        self._indicator_columns: list[str] = indicator_columns or []
         self._mice_imputer = None   # MICEImputer instance, set during fit
-        self._handlers: Dict[str, BaseTypeHandler] = {}
-        self._dropped_columns: List[str] = []
-        self._feature_names: List[str] = []
+        self._handlers: dict[str, BaseTypeHandler] = {}
+        self._dropped_columns: list[str] = []
+        self._feature_names: list[str] = []
         self._fitted = False
 
     def fit(self, df: pd.DataFrame) -> 'FeaturePreprocessor':
@@ -356,24 +355,24 @@ class FeaturePreprocessor:
 
         return get_type_handler(column_type, **kwargs)
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         """Get output feature names."""
         return self._feature_names
 
-    def get_dropped_columns(self) -> List[str]:
+    def get_dropped_columns(self) -> list[str]:
         """Get list of columns that were dropped due to missing data."""
         return self._dropped_columns
 
-    def get_handler(self, column_name: str) -> Optional[BaseTypeHandler]:
+    def get_handler(self, column_name: str) -> BaseTypeHandler | None:
         """Get the handler for a specific column."""
         return self._handlers.get(column_name)
 
 
 def preprocess_features(
     df: pd.DataFrame,
-    feature_columns: List[str],
-    config: Optional[PreprocessingConfig] = None
-) -> Tuple[np.ndarray, FeaturePreprocessor]:
+    feature_columns: list[str],
+    config: PreprocessingConfig | None = None
+) -> tuple[np.ndarray, FeaturePreprocessor]:
     """
     Convenience function to preprocess features.
 

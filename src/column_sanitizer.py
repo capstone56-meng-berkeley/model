@@ -33,10 +33,8 @@ names so the issue surfaces immediately rather than silently merging columns.
 """
 
 import re
-from typing import Dict
 
 import pandas as pd
-
 
 # ---------------------------------------------------------------------------
 # Core function
@@ -69,15 +67,15 @@ def sanitize_column(name: str) -> str:
     return s
 
 
-def build_rename_map(columns) -> Dict[str, str]:
+def build_rename_map(columns) -> dict[str, str]:
     """
     Build a {original: sanitized} rename mapping for a list of column names.
 
     Raises ``ValueError`` if any two distinct originals map to the same
     sanitized name (collision).
     """
-    rename: Dict[str, str] = {}
-    seen: Dict[str, str] = {}  # sanitized -> first original that produced it
+    rename: dict[str, str] = {}
+    seen: dict[str, str] = {}  # sanitized -> first original that produced it
 
     for col in columns:
         san = sanitize_column(col)

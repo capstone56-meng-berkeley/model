@@ -1,7 +1,6 @@
 """Configuration dataclass for morphological feature extraction."""
 
-from dataclasses import dataclass, field
-from typing import Tuple
+from dataclasses import dataclass
 
 
 @dataclass
@@ -21,7 +20,7 @@ class MorphologyConfig:
     """Resize longest axis to this before analysis. Smaller = faster;
     512 retains sufficient detail for grain-level features."""
 
-    scale_bar_mask: Tuple[float, float] = (0.88, 0.80)
+    scale_bar_mask: tuple[float, float] = (0.88, 0.80)
     """(row_frac, col_frac): zero out pixels below row_frac AND to the right
     of col_frac.  Covers the scale-bar / annotation region in the bottom-right
     corner.  Set to (1.0, 1.0) to disable masking entirely."""
@@ -76,11 +75,11 @@ class MorphologyConfig:
     # ------------------------------------------------------------------ #
     # GLCM
     # ------------------------------------------------------------------ #
-    glcm_distances: Tuple[int, ...] = (1, 3)
+    glcm_distances: tuple[int, ...] = (1, 3)
     """Pixel distances at which the GLCM is computed.  Results are averaged
     across all distances before the five Haralick properties are extracted."""
 
-    glcm_angles_deg: Tuple[float, ...] = (0.0, 45.0, 90.0, 135.0)
+    glcm_angles_deg: tuple[float, ...] = (0.0, 45.0, 90.0, 135.0)
     """Angles (degrees) at which the GLCM is computed.  Results are averaged
     for rotation invariance."""
 

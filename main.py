@@ -22,6 +22,7 @@ from src.extraction.extractor import ExtractionConfig
 from src.preprocessing import FeaturePreprocessor
 from src.model_trainer import ModelTrainer, plot_predictions
 from src.column_sanitizer import sanitize_dataframe
+from src.image_cleaner import ImageCleaner
 
 # MICE imputation: correlated alloy elements with random missingness
 MICE_COLUMNS = ["cr", "mo", "s", "ni", "al"]
@@ -117,8 +118,36 @@ def main():
         print("\n  Download complete (--download-only mode)")
         return
 
-    # Step 3: Extract image features
-    print("\n[3/6] Extracting image features...")
+    # Step 3: Clean images
+    print("\n[3/7] Cleaning images...")
+    raw_images_dir = config.images_dir
+    cleaning_cfg = config.image_cleaning
+    cleaned_images_dir = cleaning_cfg.output_dir
+
+    if not os.path.isdir(raw_images_dir) or not any(
+        f.lower().endswith((".jpg", ".jpeg", ".png"))
+        for f in os.listdir(raw_images_dir)
+    ):
+        print(f"  No images found in {raw_images_dir} — skipping cleaning")
+        cleaned_images_dir = raw_images_dir
+    else:
+        cleaner = ImageCleaner(cleaning_cfg)
+        clean_report = cleaner.clean_directory(raw_images_dir, cleaned_images_dir, force=False)
+        print(clean_report.summary())
+        non_dp = clean_report.non_dp_images()
+        if non_dp:
+            print(f"  Non-DP images flagged (will be median-imputed): {len(non_dp)}")
+        # Replace image_paths with cleaned versions
+        image_exts = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp'}
+        image_paths = [
+            os.path.join(cleaned_images_dir, os.path.basename(p))
+            for p in image_paths
+            if os.path.exists(os.path.join(cleaned_images_dir, os.path.basename(p)))
+        ]
+        print(f"  Cleaned images available: {len(image_paths)}")
+
+    # Step 4: Extract image features
+    print("\n[4/7] Extracting image features...")
 
     # Build extraction config
     extraction_config = ExtractionConfig(
@@ -152,7 +181,7 @@ def main():
     print(f"  Image features shape: {X_images.shape}")
 
     # Step 4: Preprocess tabular features
-    print("\n[4/6] Preprocessing tabular features...")
+    print("\n[5/7] Preprocessing tabular features...")
 
     X_tabular = None
     if labels_df is not None and not labels_df.empty and config.features.feature_columns:
@@ -180,7 +209,7 @@ def main():
         print("  No tabular feature columns configured, skipping")
 
     # Step 5: Morphological features
-    print("\n[5/7] Extracting morphological features...")
+    print("\n[6/7] Extracting morphological features...")
 
     X_morphological = None
 
@@ -252,7 +281,7 @@ def main():
         print(f"  Morphological features: {X_morphological.shape[1]}")
 
     # Step 6: Concatenate features
-    print("\n[6/7] Concatenating features...")
+    print("\n[7/7] Concatenating features...")
 
     parts = [X_images]
     dim_log = [f"{X_images.shape[1]} (CNN image)"]

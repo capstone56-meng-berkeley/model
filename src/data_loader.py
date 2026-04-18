@@ -1,11 +1,10 @@
 """Unified data loader supporting both Drive and local data sources."""
 
 import os
-from typing import List, Optional, Tuple
 
 import pandas as pd
 
-from .config import Config, ensure_dir
+from .config import Config
 from .drive_client import GoogleDriveClient
 from .feature_loader import FeatureLoader
 from .image_downloader import ImageDownloader
@@ -30,8 +29,8 @@ class DataLoader:
             config: Configuration object
         """
         self.config = config
-        self._drive_client: Optional[GoogleDriveClient] = None
-        self._sheets_client: Optional[GoogleSheetsClient] = None
+        self._drive_client: GoogleDriveClient | None = None
+        self._sheets_client: GoogleSheetsClient | None = None
 
     @property
     def drive_client(self) -> GoogleDriveClient:
@@ -50,7 +49,7 @@ class DataLoader:
             self._sheets_client = GoogleSheetsClient(self.drive_client.creds)
         return self._sheets_client
 
-    def load_data(self) -> Tuple[List[str], pd.DataFrame]:
+    def load_data(self) -> tuple[list[str], pd.DataFrame]:
         """
         Load images and labels based on configured data source.
 
@@ -62,7 +61,7 @@ class DataLoader:
         else:
             return self._load_from_local()
 
-    def _load_from_drive(self) -> Tuple[List[str], pd.DataFrame]:
+    def _load_from_drive(self) -> tuple[list[str], pd.DataFrame]:
         """
         Load data from Google Drive.
 
@@ -121,7 +120,7 @@ class DataLoader:
         print(f"✓ Loaded {len(image_paths)} images")
         return image_paths, labels_df
 
-    def _load_from_local(self) -> Tuple[List[str], pd.DataFrame]:
+    def _load_from_local(self) -> tuple[list[str], pd.DataFrame]:
         """
         Load data from local directory.
 

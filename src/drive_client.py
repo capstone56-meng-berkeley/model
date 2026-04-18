@@ -2,7 +2,6 @@
 
 import io
 import os
-from typing import List, Optional
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -102,8 +101,8 @@ class GoogleDriveClient:
     def list_files_in_folder(
         self,
         folder_id: str,
-        file_extensions: Optional[List[str]] = None
-    ) -> List[dict]:
+        file_extensions: list[str] | None = None
+    ) -> list[dict]:
         """
         List all files in a Google Drive folder.
 

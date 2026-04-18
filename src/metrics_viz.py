@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -142,7 +142,7 @@ _DEMO_PANELS = [
     },
 ]
 
-_SCHEMA: Dict[str, List[dict]] = {
+_SCHEMA: dict[str, list[dict]] = {
     "pipeline": _PIPELINE_PANELS,
     "bayes":    _BAYES_PANELS,
     "demo":     _DEMO_PANELS,
@@ -155,10 +155,10 @@ _SCHEMA: Dict[str, List[dict]] = {
 
 def plot_history(
     name: str,
-    base_dir: Optional[Union[str, Path]] = None,
+    base_dir: Union[str, Path] | None = None,
     save: bool = True,
     show: bool = False,
-) -> Optional[Path]:
+) -> Path | None:
     """
     Render the run-history chart for *name* and save to
     ``runs/<name>/metrics_history.png``.
@@ -195,10 +195,9 @@ def plot_history(
 
     # Convert numeric columns
     for col in df.columns:
-        try:
-            df[col] = pd.to_numeric(df[col])
-        except (ValueError, TypeError):
-            pass
+        df[col] = pd.to_numeric(df[col], errors="coerce").where(
+            pd.to_numeric(df[col], errors="coerce").notna(), df[col]
+        )
 
     # x-axis: run index (integer) for even spacing; label with run_id
     x = np.arange(len(df))
@@ -221,7 +220,7 @@ def plot_history(
 
     colours = plt.cm.tab10.colors
 
-    for ax, panel in zip(axes, panels):
+    for ax, panel in zip(axes, panels, strict=False):
         series = panel.get("series") or []
         col_pattern = panel.get("col_pattern")
 
@@ -291,7 +290,7 @@ def plot_history(
     )
     plt.tight_layout()
 
-    out_path: Optional[Path] = None
+    out_path: Path | None = None
     if save:
         out_path = base / name / "metrics_history.png"
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -307,17 +306,17 @@ def plot_history(
 
 
 def plot_all(
-    base_dir: Optional[Union[str, Path]] = None,
+    base_dir: Union[str, Path] | None = None,
     save: bool = True,
     show: bool = False,
-) -> Dict[str, Optional[Path]]:
+) -> dict[str, Path | None]:
     """
     Render history charts for all run families that have a ``history.csv``.
 
     Returns a dict mapping name → saved path (or None if skipped).
     """
     base = Path(base_dir).resolve() if base_dir else _RUNS_DIR
-    results: Dict[str, Optional[Path]] = {}
+    results: dict[str, Path | None] = {}
     for candidate in sorted(base.iterdir()):
         if candidate.is_dir() and (candidate / "history.csv").exists():
             results[candidate.name] = plot_history(
@@ -330,7 +329,7 @@ def plot_all(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _resolve_panels(name: str, df: pd.DataFrame) -> List[dict]:
+def _resolve_panels(name: str, df: pd.DataFrame) -> list[dict]:
     """Return the panel spec list for *name*, falling back to generic."""
     if name in _SCHEMA:
         return _SCHEMA[name]
@@ -354,7 +353,7 @@ def _resolve_panels(name: str, df: pd.DataFrame) -> List[dict]:
 def _annotate_best_model(
     df: pd.DataFrame,
     axes,
-    panels: List[dict],
+    panels: list[dict],
 ) -> None:
     """Add a text strip along the x-axis showing the best model per run."""
     model_col = next(
@@ -366,7 +365,7 @@ def _annotate_best_model(
 
     x = np.arange(len(df))
     ax = axes[0]
-    for xi, val in zip(x, df[model_col]):
+    for xi, val in zip(x, df[model_col], strict=False):
         if pd.notna(val) and str(val).strip():
             ax.text(
                 xi, ax.get_ylim()[0],
