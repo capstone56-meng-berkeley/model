@@ -85,7 +85,7 @@ class TestTransform:
 
     def test_transform_before_fit_raises(self, simple_df):
         prep = FeaturePreprocessor(make_cfg())
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             prep.transform(simple_df)
 
 

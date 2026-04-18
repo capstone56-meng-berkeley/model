@@ -1,6 +1,7 @@
 """Tests for src/column_sanitizer.py"""
+import re
+
 import pandas as pd
-import pytest
 
 from src.column_sanitizer import sanitize_column, sanitize_dataframe
 
@@ -50,9 +51,6 @@ class TestSanitizeColumn:
         # 'Qtime(min)' — bracket directly attached
         result = sanitize_column("Qtime(min)")
         assert "min" in result
-
-
-import re
 
 
 class TestSanitizeDataframe:

@@ -5,10 +5,8 @@ so they run cleanly in CI.
 """
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.features import FeaturePipeline, _align_cache_to_ids, _normalise_id
-
 
 # ---------------------------------------------------------------------------
 # _normalise_id
@@ -47,7 +45,7 @@ def _write_npz(path, ids, feat_dim=4, seed=0):
 class TestAlignCacheToIds:
     def test_perfect_match(self, tmp_path):
         ids = ["sample_a", "sample_b", "sample_c"]
-        X_cache = _write_npz(tmp_path / "cache.npz", ids)
+        _write_npz(tmp_path / "cache.npz", ids)
         df_ids = pd.Series(ids)
         X_out, n_matched = _align_cache_to_ids(tmp_path / "cache.npz", df_ids)
         assert X_out.shape == (3, 4)
