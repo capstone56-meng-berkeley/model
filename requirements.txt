@@ -9,6 +9,10 @@ torchvision>=0.15.0
 
 # Image Processing
 Pillow>=9.0.0
+opencv-python-headless>=4.8.0
+
+# Claude API (optional — required for image_cleaning backend="claude")
+anthropic>=0.25.0
 
 # Google APIs (for Drive/Sheets integration)
 google-auth>=2.0.0
