@@ -89,10 +89,42 @@ jobs:
           GOOGLE_CREDENTIALS_PATH: ${{ secrets.GOOGLE_CREDENTIALS_PATH }}
           GOOGLE_TOKEN_PATH: ${{ secrets.GOOGLE_TOKEN_PATH }}
 
-      - name: Upload run artifacts
+      - name: Find best model artifact
+        id: find_model
+        run: |
+          # Locate the most recently written best_model.joblib under runs/
+          MODEL_PATH=$(find runs/ -name "best_model.joblib" -printf "%T@ %p\n" 2>/dev/null \
+            | sort -n | tail -1 | awk '{print $2}')
+          if [ -z "$MODEL_PATH" ]; then
+            echo "No best_model.joblib found — skipping model upload"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true"  >> "$GITHUB_OUTPUT"
+            echo "path=$MODEL_PATH" >> "$GITHUB_OUTPUT"
+            # Derive run_id from directory name (runs/<family>/<run_id>/best_model.joblib)
+            RUN_ID=$(basename "$(dirname "$MODEL_PATH")")
+            echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+            # Copy manifest alongside so the artifact is self-describing
+            MANIFEST="$(dirname "$MODEL_PATH")/manifest.json"
+            if [ -f "$MANIFEST" ]; then
+              cp "$MANIFEST" "model_manifest.json"
+            fi
+          fi
+
+      - name: Upload best model
+        uses: actions/upload-artifact@v4
+        if: steps.find_model.outputs.found == 'true'
+        with:
+          name: model-${{ steps.find_model.outputs.run_id }}
+          path: |
+            ${{ steps.find_model.outputs.path }}
+            model_manifest.json
+          retention-days: 90
+
+      - name: Upload full run directory
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: training-run-${{ github.run_id }}
           path: runs/
-          retention-days: 90
+          retention-days: 30
