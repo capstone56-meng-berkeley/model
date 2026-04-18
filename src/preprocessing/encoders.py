@@ -1,6 +1,5 @@
 """Encoder implementations for feature transformation."""
 
-from typing import List, Optional, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -32,7 +31,7 @@ class PassthroughEncoder(BaseEncoder):
             raise RuntimeError("Encoder not fitted. Call fit() first.")
         return series.values.reshape(-1, 1).astype(np.float64)
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         return self._feature_names
 
 
@@ -44,7 +43,7 @@ class OneHotEncoder(BaseEncoder):
         self,
         column_name: str = "",
         handle_unknown: str = "ignore",
-        max_categories: Optional[int] = None,
+        max_categories: int | None = None,
         **kwargs
     ):
         """
@@ -59,7 +58,7 @@ class OneHotEncoder(BaseEncoder):
         self.column_name = column_name
         self.handle_unknown = handle_unknown
         self.max_categories = max_categories
-        self._categories: List[str] = []
+        self._categories: list[str] = []
 
     def fit(self, series: pd.Series) -> 'OneHotEncoder':
         unique_values = series.dropna().unique()
@@ -96,7 +95,7 @@ class OneHotEncoder(BaseEncoder):
 
         return result
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         return self._feature_names
 
 
@@ -107,7 +106,7 @@ class LabelEncoder(BaseEncoder):
     def __init__(self, column_name: str = "", **kwargs):
         super().__init__(**kwargs)
         self.column_name = column_name
-        self._mapping: Dict[str, int] = {}
+        self._mapping: dict[str, int] = {}
         self._unknown_value: int = -1
 
     def fit(self, series: pd.Series) -> 'LabelEncoder':
@@ -135,10 +134,10 @@ class LabelEncoder(BaseEncoder):
 
         return result.reshape(-1, 1)
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         return self._feature_names
 
-    def inverse_transform(self, encoded: np.ndarray) -> List[str]:
+    def inverse_transform(self, encoded: np.ndarray) -> list[str]:
         """Convert encoded values back to original labels."""
         inverse_mapping = {v: k for k, v in self._mapping.items()}
         result = []
@@ -155,7 +154,7 @@ class OrdinalEncoder(BaseEncoder):
     def __init__(
         self,
         column_name: str = "",
-        categories: Optional[List[str]] = None,
+        categories: list[str] | None = None,
         **kwargs
     ):
         """
@@ -168,7 +167,7 @@ class OrdinalEncoder(BaseEncoder):
         super().__init__(**kwargs)
         self.column_name = column_name
         self._categories = categories or []
-        self._mapping: Dict[str, int] = {}
+        self._mapping: dict[str, int] = {}
 
     def fit(self, series: pd.Series) -> 'OrdinalEncoder':
         if self._categories:
@@ -201,7 +200,7 @@ class OrdinalEncoder(BaseEncoder):
 
         return result.reshape(-1, 1)
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         return self._feature_names
 
 
@@ -212,7 +211,7 @@ class BinaryEncoder(BaseEncoder):
     def __init__(self, column_name: str = "", **kwargs):
         super().__init__(**kwargs)
         self.column_name = column_name
-        self._mapping: Dict[str, int] = {}
+        self._mapping: dict[str, int] = {}
         self._n_bits: int = 0
 
     def fit(self, series: pd.Series) -> 'BinaryEncoder':
@@ -246,7 +245,7 @@ class BinaryEncoder(BaseEncoder):
 
         return result
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         return self._feature_names
 
 
@@ -301,7 +300,7 @@ class TfidfEncoder(BaseEncoder):
         sparse_result = self._vectorizer.transform(text_data)
         return sparse_result.toarray()
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         return self._feature_names
 
 

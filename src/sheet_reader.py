@@ -2,7 +2,6 @@
 
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 from .sheets_client import GoogleSheetsClient
 
@@ -24,7 +23,7 @@ DIRECT_IMAGE_PATTERNS = [
 ]
 
 
-def extract_image_id(cell_value: str) -> Optional[str]:
+def extract_image_id(cell_value: str) -> str | None:
     """
     Extract image ID from =IMAGE(...) formula or direct link.
 
@@ -51,7 +50,7 @@ def extract_image_id(cell_value: str) -> Optional[str]:
     return None
 
 
-def extract_folder_id(cell_value: str) -> Optional[str]:
+def extract_folder_id(cell_value: str) -> str | None:
     """
     Extract folder ID from Drive folder link.
 
@@ -100,9 +99,9 @@ class ImageReference:
 @dataclass
 class SheetData:
     """Parsed data from the Google Sheet."""
-    image_references: List[ImageReference]
-    row_ids: List[str]
-    raw_data: List[List[str]]
+    image_references: list[ImageReference]
+    row_ids: list[str]
+    raw_data: list[list[str]]
 
 
 class SheetReader:
@@ -129,8 +128,8 @@ class SheetReader:
     def read_image_references(
         self,
         row_id_column: str,
-        image_columns: List[str],
-        column_types: Dict[str, str],
+        image_columns: list[str],
+        column_types: dict[str, str],
         skip_header: bool = True
     ) -> SheetData:
         """

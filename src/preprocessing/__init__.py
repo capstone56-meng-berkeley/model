@@ -1,11 +1,11 @@
 """Extensible tabular data preprocessing pipeline."""
 
-from .base import BaseImputer, BaseEncoder, BaseScaler, BaseTypeHandler
-from .imputers import ImputerRegistry
+from .base import BaseEncoder, BaseImputer, BaseScaler, BaseTypeHandler
 from .encoders import EncoderRegistry
+from .imputers import ImputerRegistry
+from .pipeline import FeaturePreprocessor
 from .scalers import ScalerRegistry
 from .type_handlers import TypeHandlerRegistry
-from .pipeline import FeaturePreprocessor
 
 __all__ = [
     "BaseImputer",

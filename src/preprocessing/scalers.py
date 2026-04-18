@@ -1,6 +1,5 @@
 """Scaler implementations for feature normalization."""
 
-from typing import Optional
 
 import numpy as np
 
@@ -43,8 +42,8 @@ class StandardScaler(BaseScaler):
         super().__init__(**kwargs)
         self.with_mean = with_mean
         self.with_std = with_std
-        self._mean: Optional[np.ndarray] = None
-        self._std: Optional[np.ndarray] = None
+        self._mean: np.ndarray | None = None
+        self._std: np.ndarray | None = None
 
     def fit(self, X: np.ndarray) -> 'StandardScaler':
         X = np.asarray(X)
@@ -104,9 +103,9 @@ class MinMaxScaler(BaseScaler):
         """
         super().__init__(**kwargs)
         self.feature_range = feature_range
-        self._min: Optional[np.ndarray] = None
-        self._max: Optional[np.ndarray] = None
-        self._scale: Optional[np.ndarray] = None
+        self._min: np.ndarray | None = None
+        self._max: np.ndarray | None = None
+        self._scale: np.ndarray | None = None
 
     def fit(self, X: np.ndarray) -> 'MinMaxScaler':
         X = np.asarray(X)
@@ -174,8 +173,8 @@ class RobustScaler(BaseScaler):
         self.with_centering = with_centering
         self.with_scaling = with_scaling
         self.quantile_range = quantile_range
-        self._median: Optional[np.ndarray] = None
-        self._iqr: Optional[np.ndarray] = None
+        self._median: np.ndarray | None = None
+        self._iqr: np.ndarray | None = None
 
     def fit(self, X: np.ndarray) -> 'RobustScaler':
         X = np.asarray(X)
@@ -226,7 +225,7 @@ class MaxAbsScaler(BaseScaler):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._max_abs: Optional[np.ndarray] = None
+        self._max_abs: np.ndarray | None = None
 
     def fit(self, X: np.ndarray) -> 'MaxAbsScaler':
         X = np.asarray(X)

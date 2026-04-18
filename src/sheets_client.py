@@ -1,6 +1,5 @@
 """Google Sheets client for reading spreadsheet data."""
 
-from typing import List, Optional
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -24,7 +23,7 @@ class GoogleSheetsClient:
         spreadsheet_id: str,
         worksheet_name: str,
         value_render_option: str = "FORMULA"
-    ) -> List[List[str]]:
+    ) -> list[list[str]]:
         """
         Get all values from a worksheet.
 
@@ -52,7 +51,7 @@ class GoogleSheetsClient:
         spreadsheet_id: str,
         range_notation: str,
         value_render_option: str = "FORMULA"
-    ) -> List[List[str]]:
+    ) -> list[list[str]]:
         """
         Get values from a specific range.
 
@@ -79,7 +78,7 @@ class GoogleSheetsClient:
         column: str,
         start_row: int = 1,
         value_render_option: str = "FORMULA"
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get all values from a specific column.
 
@@ -110,7 +109,7 @@ class GoogleSheetsClient:
         spreadsheet_id: str,
         worksheet_name: str,
         header_row: int = 1
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get header row values.
 

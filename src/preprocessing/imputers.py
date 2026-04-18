@@ -1,6 +1,6 @@
 """Imputer implementations for missing value handling."""
 
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 
@@ -150,7 +150,7 @@ class MICEImputer(BaseImputer):
         self.max_iter = max_iter
         self.random_state = random_state
         self._imputer = None
-        self._columns: List[str] = []
+        self._columns: list[str] = []
 
     # ------------------------------------------------------------------
     # Per-series API — intentionally unsupported
@@ -170,7 +170,7 @@ class MICEImputer(BaseImputer):
     # ------------------------------------------------------------------
     # DataFrame API — called by FeaturePreprocessor
     # ------------------------------------------------------------------
-    def fit_df(self, df: pd.DataFrame, columns: List[str]) -> 'MICEImputer':
+    def fit_df(self, df: pd.DataFrame, columns: list[str]) -> 'MICEImputer':
         """
         Fit the iterative imputer on the given columns of df.
 

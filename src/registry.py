@@ -1,6 +1,6 @@
 """Base registry pattern for extensible components."""
 
-from typing import Dict, List, Type, TypeVar, Optional
+from typing import TypeVar
 
 T = TypeVar('T')
 
@@ -23,7 +23,7 @@ class Registry:
         # List available
         MyRegistry.list_available()  # ["my_component"]
     """
-    _registry: Dict[str, Type] = {}
+    _registry: dict[str, type] = {}
 
     @classmethod
     def register(cls, name: str):
@@ -36,7 +36,7 @@ class Registry:
         Returns:
             Decorator function
         """
-        def decorator(component_cls: Type[T]) -> Type[T]:
+        def decorator(component_cls: type[T]) -> type[T]:
             if name in cls._registry:
                 raise ValueError(
                     f"Component '{name}' already registered in {cls.__name__}. "
@@ -47,7 +47,7 @@ class Registry:
         return decorator
 
     @classmethod
-    def get(cls, name: str) -> Optional[Type]:
+    def get(cls, name: str) -> type | None:
         """
         Get a component by name.
 
@@ -60,7 +60,7 @@ class Registry:
         return cls._registry.get(name)
 
     @classmethod
-    def get_or_raise(cls, name: str) -> Type:
+    def get_or_raise(cls, name: str) -> type:
         """
         Get a component by name, raising if not found.
 
@@ -83,7 +83,7 @@ class Registry:
         return component
 
     @classmethod
-    def list_available(cls) -> List[str]:
+    def list_available(cls) -> list[str]:
         """
         List all registered component names.
 

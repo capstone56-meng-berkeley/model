@@ -16,8 +16,8 @@ Processing order:
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Tuple, Optional
+
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
@@ -55,7 +55,7 @@ class CleanConfig:
     inpaint_method: int = cv2.INPAINT_TELEA
 
     # --- output ---
-    output_size: Optional[Tuple[int, int]] = None  # (W, H), e.g. (224, 224)
+    output_size: tuple[int, int] | None = None  # (W, H), e.g. (224, 224)
 
 
 def _make_yellow_mask(hsv: np.ndarray, cfg: CleanConfig) -> np.ndarray:
