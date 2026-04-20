@@ -1,0 +1,53 @@
+{
+  "scope": "dp_steel",
+  "n_trials": 100,
+  "feature_matrix_rows": 54,
+  "feature_matrix_cols": 912,
+  "top_n": 3,
+  "cv_search": "RepeatedKFold(5,5)",
+  "cv_eval": "RepeatedKFold(5,10)",
+  "best_model": "ABR",
+  "models": {
+    "GBR": {
+      "best_cv_r2": 0.8318090682351906,
+      "tuned_cv_r2": 0.7991335442992953,
+      "tuned_std": 0.2514952025823073,
+      "delta": 0.011406822957743867,
+      "params": {
+        "n_estimators": 313,
+        "learning_rate": 0.023668527518336674,
+        "max_depth": 3,
+        "subsample": 0.6452910731239195,
+        "min_samples_leaf": 1,
+        "max_features": null
+      }
+    },
+    "ABR": {
+      "best_cv_r2": 0.835860067311887,
+      "tuned_cv_r2": 0.8039604150946599,
+      "tuned_std": 0.26303877800074965,
+      "delta": 0.038836958281173284,
+      "params": {
+        "max_depth": 7,
+        "n_estimators": 343,
+        "learning_rate": 1.148602381329447
+      }
+    },
+    "ExtraTrees": {
+      "best_cv_r2": 0.820100879804993,
+      "tuned_cv_r2": 0.7939091240427899,
+      "tuned_std": 0.2214277648098955,
+      "delta": 0.476885890237217,
+      "params": {
+        "n_estimators": 570,
+        "max_depth": 25,
+        "min_samples_leaf": 1,
+        "max_features": 0.5,
+        "bootstrap": false
+      }
+    }
+  },
+  "run_id": "20260420_051340_cdd6",
+  "name": "bayes",
+  "saved_at": "2026-04-20 05:33:27"
+}
