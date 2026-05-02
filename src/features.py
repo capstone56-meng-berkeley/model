@@ -264,7 +264,9 @@ class FeaturePipeline:
             logger.info("download_images: nothing to download (all files present).")
             return self._list_images()
 
-        max_workers = min(16, max(1, (os.cpu_count() or 4) * 2))
+        # Drive throttles per-user; 8 concurrent connections empirically
+        # outperforms 16 once retries are factored in.
+        max_workers = min(8, max(1, os.cpu_count() or 4))
         creds = drive.creds
         thread_local = threading.local()
 

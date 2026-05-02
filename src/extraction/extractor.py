@@ -20,8 +20,8 @@ class ExtractionConfig:
     """Configuration for feature extraction."""
     backbones: list[str] = field(default_factory=lambda: ["vgg16"])
     img_size: int = 224
-    batch_size: int = 16
-    num_workers: int = 2
+    batch_size: int = 32
+    num_workers: int = 4
     pooling: str = "avg"
     parallel: bool = False  # Run multiple backbones in parallel
 
@@ -72,7 +72,12 @@ class FeatureExtractor:
             config: Extraction configuration
         """
         self.config = config
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+        else:
+            self.device = torch.device("cpu")
 
         # Initialize backbones from registry
         self.backbones: list[BaseBackbone] = []
@@ -113,12 +118,14 @@ class FeatureExtractor:
             Tuple of (features array, filenames list)
         """
         dataset = ImageDataset(image_paths, transform=self.transform)
+        # pin_memory only helps for CPU→CUDA transfers; on MPS unified memory
+        # there's no copy, so pinning adds overhead without benefit.
         dataloader = DataLoader(
             dataset,
             batch_size=self.config.batch_size,
             shuffle=False,
             num_workers=self.config.num_workers,
-            pin_memory=True
+            pin_memory=(self.device.type == "cuda"),
         )
 
         all_features = []
