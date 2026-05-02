@@ -22,6 +22,7 @@ import math
 import os
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from .morphology_config import MorphologyConfig
 
@@ -132,11 +133,8 @@ class MorphologicalExtractor:
 
         logger.info("Extracting morphological features from %d images...", len(image_paths))
         rows = []
-        for i, path in enumerate(image_paths):
-            feat = self.extract_single(path)
-            rows.append(feat)
-            if (i + 1) % 10 == 0 or (i + 1) == len(image_paths):
-                logger.info("  %d / %d", i + 1, len(image_paths))
+        for path in tqdm(image_paths, desc="Morphological features", unit="img"):
+            rows.append(self.extract_single(path))
 
         X = np.vstack(rows)
 

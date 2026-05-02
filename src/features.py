@@ -250,7 +250,7 @@ class FeaturePipeline:
         from tqdm.auto import tqdm
 
         jobs: list[tuple[str, Path]] = []  # (file_id, dest_path)
-        for row_id, folder_id in folder_entries:
+        for row_id, folder_id in tqdm(folder_entries, desc="Listing folders", unit="folder"):
             files = drive.list_files_in_folder(
                 folder_id, file_extensions=list(IMAGE_EXTENSIONS)
             )
