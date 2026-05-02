@@ -1,0 +1,5 @@
+Model,Target,Untuned R²,Tuned R²,Untuned MAE,Tuned MAE,Untuned RMSE,Tuned RMSE
+ABR,HoldingTemp (°C),0.3443,0.6793,24.969,13.285,69.627,48.698
+ABR,HoldingTime (min),0.9697,0.9685,3.372,2.204,7.702,7.861
+GBR,HoldingTemp (°C),0.4938,0.4455,24.782,23.011,61.176,64.027
+GBR,HoldingTime (min),0.9119,0.9768,5.932,2.735,13.139,6.750

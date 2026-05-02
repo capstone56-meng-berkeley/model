@@ -1,51 +1,49 @@
 {
   "dp_steel": {
-    "saved_at": "2026-04-14 12:12:44",
-    "git_commit": "65da734",
+    "saved_at": "2026-04-26 13:02:59",
+    "git_commit": "2b6085a",
     "n_trials": 100,
     "cv_protocol": "RepeatedKFold(n_splits=5, n_repeats=5) search / (n_repeats=10) eval",
     "feature_matrix_shape": [
       54,
-      17
+      818
     ],
     "best_model": "GBR",
     "models": {
       "ABR": {
-        "best_cv_r2": 0.8769650517046667,
-        "tuned_cv_r2": 0.8661333516966201,
-        "tuned_std": 0.2039329286417189,
-        "delta": 0.06565147900722079,
+        "best_cv_r2": 0.8114673119046235,
+        "tuned_cv_r2": 0.7569849859205785,
+        "tuned_std": 0.3165406339421164,
+        "delta": -0.03754056345175705,
         "params": {
-          "max_depth": 5,
-          "n_estimators": 387,
-          "learning_rate": 0.2286366118942622
+          "max_depth": 8,
+          "n_estimators": 349,
+          "learning_rate": 0.3980345952619943
         }
       },
       "GBR": {
-        "best_cv_r2": 0.92481129476035,
-        "tuned_cv_r2": 0.9055770153214447,
-        "tuned_std": 0.15490685282450417,
-        "delta": 0.11716170717253982,
+        "best_cv_r2": 0.8134597481748115,
+        "tuned_cv_r2": 0.7756260000066031,
+        "tuned_std": 0.2606836792468984,
+        "delta": 0.016616847620312125,
         "params": {
-          "n_estimators": 469,
-          "learning_rate": 0.05126768805453102,
-          "max_depth": 2,
-          "subsample": 0.5173680426120633,
-          "min_samples_leaf": 2,
+          "n_estimators": 435,
+          "learning_rate": 0.0354713798598805,
+          "max_depth": 6,
+          "subsample": 0.8375541052606149,
+          "min_samples_leaf": 1,
           "max_features": null
         }
       },
-      "ExtraTrees": {
-        "best_cv_r2": 0.8333444737787056,
-        "tuned_cv_r2": 0.8100697179617344,
-        "tuned_std": 0.20345978477329485,
-        "delta": 0.2287340123281778,
+      "KNN": {
+        "best_cv_r2": 0.7073174361431712,
+        "tuned_cv_r2": 0.6092398748266478,
+        "tuned_std": 0.5203495148003423,
+        "delta": 0.28424757436929254,
         "params": {
-          "n_estimators": 128,
-          "max_depth": 17,
-          "min_samples_leaf": 1,
-          "max_features": 0.5,
-          "bootstrap": false
+          "n_neighbors": 2,
+          "weights": "distance",
+          "p": 2
         }
       }
     }
