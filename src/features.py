@@ -415,24 +415,29 @@ class FeaturePipeline:
     def load_morph_features(
         self,
         df_ids: pd.Series,
+        preprocess: bool = False,
     ) -> np.ndarray | None:
         """
         Load morphological features and align to *df_ids*.
 
-        The morph cache stores features indexed by image filename; this method
-        aligns them to the dataset row order via the shared row-ID convention.
-        Preprocessing (standard scaling, median imputation) is applied here so
-        the returned array is model-ready.
+        Returns the **raw** aligned matrix by default. Median imputation and
+        standard scaling are caller responsibilities — they must be fit on
+        the training split only to avoid leakage.
 
         Returns ``None`` (with a warning) if the cache does not exist.
 
         Parameters
         ----------
         df_ids : Series of row IDs (used as alignment keys).
+        preprocess : Legacy flag. If True, fits a median imputer + StandardScaler
+            on the FULL aligned matrix (val/test rows included). LEAKS — only
+            keep this for backwards compatibility with notebooks that have not
+            yet been refactored to fit preprocessing per-fold.
 
         Returns
         -------
         float64 ndarray of shape ``(len(df_ids), n_morph_features)``, or ``None``.
+        Raw NaN values are preserved when *preprocess=False*.
         """
         cache = self.morph_cache_path
         if not cache.exists():
@@ -443,9 +448,7 @@ class FeaturePipeline:
             )
             return None
 
-        from src.config import EncodingConfig, MissingDataConfig, PreprocessingConfig, ScalingConfig
         from src.extraction.morphology import MorphologicalExtractor
-        from src.preprocessing import FeaturePreprocessor
 
         cd = np.load(str(cache), allow_pickle=True)
         X_raw: np.ndarray = cd["X"].astype(np.float64)
@@ -453,7 +456,6 @@ class FeaturePipeline:
         # Align by filename if cache stores per-image rows; otherwise use positional
         # alignment assuming the cache was built on the same df ordering.
         if "filenames" in cd:
-            # Build id→row mapping from filenames in the cache
             filenames = list(cd["filenames"])
             id_to_rows: dict[str, list[int]] = defaultdict(list)
             for i, fname in enumerate(filenames):
@@ -469,11 +471,21 @@ class FeaturePipeline:
                     X_aligned[r] = np.nanmean(X_raw[idxs], axis=0)
                     n_matched += 1
         else:
-            # Legacy cache: rows correspond 1:1 with df rows
             n_rows = min(len(X_raw), len(df_ids))
             X_aligned = np.full((len(df_ids), X_raw.shape[1]), np.nan, dtype=np.float64)
             X_aligned[:n_rows] = X_raw[:n_rows]
             n_matched = int((~np.isnan(X_aligned).any(axis=1)).sum())
+
+        if not preprocess:
+            logger.info(
+                "load_morph_features: shape=%s  matched=%d/%d  (raw — caller must impute+scale per-fold)",
+                X_aligned.shape, n_matched, len(df_ids),
+            )
+            return X_aligned
+
+        # Legacy preprocess=True path — fits on full data, leaks val/test stats.
+        from src.config import EncodingConfig, MissingDataConfig, PreprocessingConfig, ScalingConfig
+        from src.preprocessing import FeaturePreprocessor
 
         morph_names = MorphologicalExtractor.get_feature_names()
         df_morph = pd.DataFrame(X_aligned, columns=morph_names[:X_aligned.shape[1]])
@@ -490,7 +502,10 @@ class FeaturePipeline:
         )
         preprocessor = FeaturePreprocessor(prep_cfg)
         X_out = preprocessor.fit_transform(df_morph).astype(np.float64)
-
+        logger.warning(
+            "load_morph_features(preprocess=True): fits scaler+imputer on FULL data — leaks. "
+            "Refactor caller to use preprocess=False and fit per-fold."
+        )
         logger.info(
             "load_morph_features: shape=%s  matched=%d/%d",
             X_out.shape, n_matched, len(df_ids),

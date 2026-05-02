@@ -1,51 +1,49 @@
 {
   "dp_steel": {
-    "saved_at": "2026-04-20 05:55:57",
-    "git_commit": "059e806",
+    "saved_at": "2026-04-26 13:02:59",
+    "git_commit": "2b6085a",
     "n_trials": 100,
     "cv_protocol": "RepeatedKFold(n_splits=5, n_repeats=5) search / (n_repeats=10) eval",
     "feature_matrix_shape": [
       54,
-      106
+      818
     ],
     "best_model": "GBR",
     "models": {
-      "GBR": {
-        "best_cv_r2": 0.9081854280023793,
-        "tuned_cv_r2": 0.8836378593581563,
-        "tuned_std": 0.18925742892586842,
-        "delta": 0.08319043089994993,
+      "ABR": {
+        "best_cv_r2": 0.8114673119046235,
+        "tuned_cv_r2": 0.7569849859205785,
+        "tuned_std": 0.3165406339421164,
+        "delta": -0.03754056345175705,
         "params": {
-          "n_estimators": 333,
-          "learning_rate": 0.07949736713239658,
-          "max_depth": 4,
-          "subsample": 0.5021519765543256,
-          "min_samples_leaf": 2,
+          "max_depth": 8,
+          "n_estimators": 349,
+          "learning_rate": 0.3980345952619943
+        }
+      },
+      "GBR": {
+        "best_cv_r2": 0.8134597481748115,
+        "tuned_cv_r2": 0.7756260000066031,
+        "tuned_std": 0.2606836792468984,
+        "delta": 0.016616847620312125,
+        "params": {
+          "n_estimators": 435,
+          "learning_rate": 0.0354713798598805,
+          "max_depth": 6,
+          "subsample": 0.8375541052606149,
+          "min_samples_leaf": 1,
           "max_features": null
         }
       },
-      "ExtraTrees": {
-        "best_cv_r2": 0.777121574665012,
-        "tuned_cv_r2": 0.7389852052897882,
-        "tuned_std": 0.2225738141248701,
-        "delta": 0.016912118261879105,
+      "KNN": {
+        "best_cv_r2": 0.7073174361431712,
+        "tuned_cv_r2": 0.6092398748266478,
+        "tuned_std": 0.5203495148003423,
+        "delta": 0.28424757436929254,
         "params": {
-          "n_estimators": 592,
-          "max_depth": 5,
-          "min_samples_leaf": 1,
-          "max_features": 0.5,
-          "bootstrap": false
-        }
-      },
-      "ABR": {
-        "best_cv_r2": 0.8033134462571302,
-        "tuned_cv_r2": 0.7719350380374075,
-        "tuned_std": 0.22719765145030876,
-        "delta": 0.10830765647350848,
-        "params": {
-          "max_depth": 4,
-          "n_estimators": 195,
-          "learning_rate": 0.22986973450219772
+          "n_neighbors": 2,
+          "weights": "distance",
+          "p": 2
         }
       }
     }
