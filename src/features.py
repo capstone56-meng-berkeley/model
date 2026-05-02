@@ -42,6 +42,7 @@ import gc
 import logging
 import os
 import re
+import threading
 from collections import defaultdict
 from pathlib import Path
 from typing import Union
@@ -238,7 +239,17 @@ class FeaturePipeline:
             credentials_path=str(self.credentials_path),
             token_path=str(self.token_path),
         )
-        downloaded = 0
+
+        # Phase 1 (serial): list files in each folder, build full work queue.
+        # Phase 2 (parallel): download missing files via a thread pool.
+        # Drive's googleapiclient is not thread-safe, so each worker builds its
+        # own service from the cached creds. Cap at 16 to avoid 403 rate limits.
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from googleapiclient.discovery import build as _build_drive
+        from googleapiclient.http import MediaIoBaseDownload as _MediaIoBaseDownload
+        from tqdm.auto import tqdm
+
+        jobs: list[tuple[str, Path]] = []  # (file_id, dest_path)
         for row_id, folder_id in folder_entries:
             files = drive.list_files_in_folder(
                 folder_id, file_extensions=list(IMAGE_EXTENSIONS)
@@ -247,8 +258,43 @@ class FeaturePipeline:
                 ext = os.path.splitext(f["name"])[1].lower() or ".jpg"
                 dest = self.temp_dir / f"{row_id}_F_{idx}{ext}"
                 if not dest.exists():
-                    drive.download_file(f["id"], str(dest))
+                    jobs.append((f["id"], dest))
+
+        if not jobs:
+            logger.info("download_images: nothing to download (all files present).")
+            return self._list_images()
+
+        max_workers = min(16, max(1, (os.cpu_count() or 4) * 2))
+        creds = drive.creds
+        thread_local = threading.local()
+
+        def _service():
+            svc = getattr(thread_local, "service", None)
+            if svc is None:
+                svc = _build_drive("drive", "v3", credentials=creds, cache_discovery=False)
+                thread_local.service = svc
+            return svc
+
+        def _download_one(file_id: str, dest: Path) -> bool:
+            request = _service().files().get_media(fileId=file_id)
+            with open(dest, "wb") as fh:
+                downloader = _MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+            return True
+
+        downloaded = 0
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futures = {ex.submit(_download_one, fid, dest): dest for fid, dest in jobs}
+            for fut in tqdm(as_completed(futures), total=len(futures),
+                            desc=f"Downloading ({max_workers} workers)"):
+                dest = futures[fut]
+                try:
+                    fut.result()
                     downloaded += 1
+                except Exception as e:
+                    logger.warning("download_images: failed %s — %s", dest.name, e)
 
         logger.info("download_images: downloaded %d new images.", downloaded)
         return self._list_images()
