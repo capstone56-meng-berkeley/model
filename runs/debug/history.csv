@@ -1,0 +1,3 @@
+backbone,n_samples,n_features,best_model,c1_test_r2_avg,c1_holdingtemp_r2,c1_holdingtime_r2,c1_cv_r2_mean,c1_cv_r2_std,c1c2_test_r2_avg,tags,run_id,saved_at
+dinov2_vitb14,444,919,RF,0.5214957315014852,0.8109614031590454,0.3489149418127634,0.8263622693260644,0.03885147392661607,,"bayes_best=KNN,r2=0.8264,delta=+0.0000; backbone=dinov2_vitb14; morph=True",20260502_154053_23dc,2026-05-02 16:01:31
+dinov2_vitb14,444,919,RF,0.521495731501485,0.8109614031590454,0.3489149418127634,0.8263622693260644,0.03885147392661607,,"bayes_best=KNN,r2=0.8264,delta=+0.0000; backbone=dinov2_vitb14; morph=True",20260503_153327_f206,2026-05-03 16:16:48

@@ -1,0 +1,28 @@
+ID,Alloy,Cycle1_HoldingTemp (C),Cycle1_HoldingTime (min)
+6_5_a1_RE-microalloyed DP steel,RE-microalloyed DP steel,880.0,20.0
+6_5_b1_RE-microalloyed DP steel,RE-microalloyed DP steel,880.0,20.0
+6_5_c1_RE-microalloyed DP steel,RE-microalloyed DP steel,880.0,20.0
+6_5_d1_RE-microalloyed DP steel,RE-microalloyed DP steel,880.0,20.0
+8_5_A_DP-LAS,DP-LAS,900.0,30.0
+8_5_B_DP-LAS,DP-LAS,900.0,30.0
+9_3_a_Ultrafine-grained DP,Ultrafine-grained DP,920.0,60.0
+9_3_b_Ultrafine-grained DP,Ultrafine-grained DP,920.0,60.0
+9_4_a_Ultrafine-grained DP,Ultrafine-grained DP,920.0,60.0
+9_4_b_Ultrafine-grained DP,Ultrafine-grained DP,920.0,60.0
+9_4_c_Ultrafine-grained DP,Ultrafine-grained DP,920.0,60.0
+11_1_a_440CMSS,440C MSS,1050.0,60.0
+11_1_b_440CMSS,440C MSS,1100.0,60.0
+11_1_c_440CMSS,440C MSS,1125.0,60.0
+11_1_d_440CMSS,440C MSS,1200.0,60.0
+14_4_DP800,DP-800,900.0,20.0
+14_5_DP800,DP-800,900.0,20.0
+14_6_DP800,DP-800,900.0,20.0
+14_7_DP800,DP-800,900.0,20.0
+14_8_DP800,DP-800,900.0,20.0
+15_4_c_DP,DP steel,871.0,5.0
+15_4_d_DP,DP steel,871.0,10.0
+15_5_c_DP,DP steel,871.0,5.0
+15_5_d_DP,DP steel,871.0,10.0
+15_6_c_DP,DP steel,871.0,5.0
+15_6_d_DP,DP steel,871.0,10.0
+23_8_b_Custom,DP-Custom,1250.0,5.0

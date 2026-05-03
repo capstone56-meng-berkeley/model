@@ -31,3 +31,6 @@ joblib>=1.1.0
 # Progress Bars
 tqdm>=4.64.0
 optuna>=4.0
+
+# Gradient boosting (alternative to sklearn GBR)
+xgboost>=2.0
