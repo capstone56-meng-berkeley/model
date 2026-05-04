@@ -306,20 +306,21 @@ def cv_evaluate(state: State) -> dict[str, float]:
 
     temp_r2_scores, time_r2_scores = [], []
     temp_mae_scores, time_mae_scores = [], []
+    temp_rmse_scores, time_rmse_scores = [], []
+    # Accumulate fold-level (y_true, y_pred) so we can render predicted-vs-actual
+    # plots per iteration without re-running CV.
+    y_true_temp, y_pred_temp = [], []
+    y_true_time, y_pred_time = [], []
     for tr_idx, te_idx in folds:
         X_tr, X_te = state.X[tr_idx], state.X[te_idx]
         Y_tr, Y_te = state.Y[tr_idx], state.Y[te_idx]
 
         if state.per_target:
             factory = make_estimator(state)
-            # Temp: identity regressor.
             mt = factory()
             mt.fit(X_tr, Y_tr[:, 0])
             yp_t = mt.predict(X_te)
-            temp_r2_scores.append(r2_score(Y_te[:, 0], yp_t))
-            temp_mae_scores.append(mean_absolute_error(Y_te[:, 0], yp_t))
 
-            # Time: optional log1p wrap.
             mh = factory()
             if state.log_time:
                 mh = TransformedTargetRegressor(
@@ -328,18 +329,23 @@ def cv_evaluate(state: State) -> dict[str, float]:
                 )
             mh.fit(X_tr, Y_tr[:, 1])
             yp_h = mh.predict(X_te)
-            time_r2_scores.append(r2_score(Y_te[:, 1], yp_h))
-            time_mae_scores.append(mean_absolute_error(Y_te[:, 1], yp_h))
         else:
             est = make_estimator(state)
             est.fit(X_tr, Y_tr)
             yp = est.predict(X_te)
             if yp.ndim == 1:
                 yp = yp.reshape(-1, 1)
-            temp_r2_scores.append(r2_score(Y_te[:, 0], yp[:, 0]))
-            time_r2_scores.append(r2_score(Y_te[:, 1], yp[:, 1]))
-            temp_mae_scores.append(mean_absolute_error(Y_te[:, 0], yp[:, 0]))
-            time_mae_scores.append(mean_absolute_error(Y_te[:, 1], yp[:, 1]))
+            yp_t = yp[:, 0]
+            yp_h = yp[:, 1]
+
+        temp_r2_scores.append(r2_score(Y_te[:, 0], yp_t))
+        time_r2_scores.append(r2_score(Y_te[:, 1], yp_h))
+        temp_mae_scores.append(mean_absolute_error(Y_te[:, 0], yp_t))
+        time_mae_scores.append(mean_absolute_error(Y_te[:, 1], yp_h))
+        temp_rmse_scores.append(float(np.sqrt(mean_squared_error(Y_te[:, 0], yp_t))))
+        time_rmse_scores.append(float(np.sqrt(mean_squared_error(Y_te[:, 1], yp_h))))
+        y_true_temp.append(Y_te[:, 0]); y_pred_temp.append(yp_t)
+        y_true_time.append(Y_te[:, 1]); y_pred_time.append(yp_h)
 
     return {
         "temp_r2_mean":  float(np.mean(temp_r2_scores)),
@@ -349,7 +355,14 @@ def cv_evaluate(state: State) -> dict[str, float]:
         "mean_r2":       float(np.mean([np.mean(temp_r2_scores), np.mean(time_r2_scores)])),
         "temp_mae":      float(np.mean(temp_mae_scores)),
         "time_mae":      float(np.mean(time_mae_scores)),
+        "temp_rmse":     float(np.mean(temp_rmse_scores)),
+        "time_rmse":     float(np.mean(time_rmse_scores)),
         "n_folds":       len(folds),
+        # Concatenated y_true / y_pred across folds — used by plot_iteration.
+        "_y_true_temp":  np.concatenate(y_true_temp),
+        "_y_pred_temp":  np.concatenate(y_pred_temp),
+        "_y_true_time":  np.concatenate(y_true_time),
+        "_y_pred_time":  np.concatenate(y_pred_time),
     }
 
 
@@ -416,6 +429,95 @@ TIER_1_STRATEGIES = [
 
 
 # ---------------------------------------------------------------------------
+# Plotting helpers
+# ---------------------------------------------------------------------------
+
+def _scatter_pva(ax, y_true, y_pred, title, target_label):
+    """One predicted-vs-actual axis with a y=x reference and R²/MAE annotation."""
+    ax.scatter(y_true, y_pred, alpha=0.55, s=22,
+               edgecolors="white", linewidth=0.4, color="steelblue")
+    mn = float(min(y_true.min(), y_pred.min()))
+    mx = float(max(y_true.max(), y_pred.max()))
+    ax.plot([mn, mx], [mn, mx], "r--", linewidth=1.4, alpha=0.7)
+    r2   = r2_score(y_true, y_pred)
+    mae  = mean_absolute_error(y_true, y_pred)
+    rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+    ax.set_xlabel(f"actual {target_label}")
+    ax.set_ylabel(f"predicted {target_label}")
+    ax.set_title(title, fontsize=10)
+    ax.text(0.05, 0.95,
+             f"R² = {r2:+.3f}\nMAE = {mae:.2f}\nRMSE = {rmse:.2f}",
+             transform=ax.transAxes, va="top", fontsize=8,
+             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.55))
+
+
+def plot_iteration(out_path: Path, n: int, baseline: dict, winner_name: str,
+                    winner_metrics: dict) -> Path:
+    """2x2 predicted-vs-actual: (HoldingTemp / HoldingTime) x (baseline / winner)."""
+    import matplotlib
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 9))
+    fig.suptitle(
+        f"Iteration {n} — predicted vs actual (CV pooled across folds)",
+        fontsize=12,
+    )
+    _scatter_pva(axes[0, 0], baseline["_y_true_temp"], baseline["_y_pred_temp"],
+                  "HoldingTemp — baseline", "HoldingTemp (°C)")
+    _scatter_pva(axes[0, 1], winner_metrics["_y_true_temp"],
+                  winner_metrics["_y_pred_temp"],
+                  f"HoldingTemp — after {winner_name!r}", "HoldingTemp (°C)")
+    _scatter_pva(axes[1, 0], baseline["_y_true_time"], baseline["_y_pred_time"],
+                  "HoldingTime — baseline", "HoldingTime (min)")
+    _scatter_pva(axes[1, 1], winner_metrics["_y_true_time"],
+                  winner_metrics["_y_pred_time"],
+                  f"HoldingTime — after {winner_name!r}", "HoldingTime (min)")
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.savefig(str(out_path), dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
+def plot_overall_progression(out_path: Path,
+                              initial: dict, iterations: list[dict]) -> Path:
+    """Composite plot: per-metric trajectory across iterations."""
+    import matplotlib
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    xs = [0] + [it["n"] for it in iterations]
+    labels = ["initial"] + [f"+{it.get('winner') or 'none'}" for it in iterations]
+    seq = [initial] + [it["after"] for it in iterations]
+
+    metrics = [
+        ("HoldingTemp R²",  "temp_r2_mean", "↑"),
+        ("HoldingTime R²",  "time_r2_mean", "↑"),
+        ("HoldingTemp MAE", "temp_mae",     "↓"),
+        ("HoldingTime MAE", "time_mae",     "↓"),
+        ("HoldingTemp RMSE","temp_rmse",    "↓"),
+        ("HoldingTime RMSE","time_rmse",    "↓"),
+    ]
+
+    fig, axes = plt.subplots(3, 2, figsize=(11, 10))
+    for ax, (title, key, direction) in zip(axes.ravel(), metrics):
+        vals = [m.get(key, float("nan")) for m in seq]
+        ax.plot(xs, vals, marker="o", color="steelblue")
+        for x, v, lbl in zip(xs, vals, labels):
+            ax.annotate(lbl, (x, v), textcoords="offset points", xytext=(0, 6),
+                         fontsize=7, ha="center")
+        ax.set_title(f"{title}  (better: {direction})", fontsize=10)
+        ax.set_xlabel("iteration")
+        ax.set_ylabel(title.split()[-1])
+        ax.grid(alpha=0.25)
+    fig.suptitle("Improvement trajectory across iterations", fontsize=12)
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.savefig(str(out_path), dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
+# ---------------------------------------------------------------------------
 # Documentation writers
 # ---------------------------------------------------------------------------
 
@@ -424,6 +526,15 @@ def write_iteration_md(out_dir: Path, n: int,
                        winner: StrategyResult | None,
                        stack: list[str]) -> Path:
     md = out_dir / f"iteration_{n:02d}.md"
+    def _fmt_d(v, digits=4):
+        if v is None or (isinstance(v, float) and (np.isnan(v) or np.isinf(v))):
+            return "—"
+        return f"{v:+.{digits}f}"
+    def _fmt(v, digits=4):
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            return "—"
+        return f"{v:.{digits}f}"
+
     lines = [
         f"# Iteration {n}",
         "",
@@ -432,16 +543,28 @@ def write_iteration_md(out_dir: Path, n: int,
         "## Baseline going in",
         "",
         f"- Cumulative stack: `{stack or 'none — vanilla baseline'}`",
-        f"- HoldingTemp R² : `{baseline['temp_r2_mean']:+.4f} ± {baseline['temp_r2_std']:.4f}`",
-        f"- HoldingTime R² : `{baseline['time_r2_mean']:+.4f} ± {baseline['time_r2_std']:.4f}`",
-        f"- Mean R²        : `{baseline['mean_r2']:+.4f}`",
-        f"- Folds          : {baseline['n_folds']}",
+        f"- Folds: {baseline['n_folds']}",
+        "",
+        "| target | R² | MAE | RMSE |",
+        "|---|---|---|---|",
+        f"| HoldingTemp | `{_fmt_d(baseline['temp_r2_mean'])} ± {_fmt(baseline['temp_r2_std'])}` "
+        f"| `{_fmt(baseline['temp_mae'], 2)}` "
+        f"| `{_fmt(baseline['temp_rmse'], 2)}` |",
+        f"| HoldingTime | `{_fmt_d(baseline['time_r2_mean'])} ± {_fmt(baseline['time_r2_std'])}` "
+        f"| `{_fmt(baseline['time_mae'], 2)}` "
+        f"| `{_fmt(baseline['time_rmse'], 2)}` |",
+        f"| **mean R²** | `{_fmt_d(baseline['mean_r2'])}` | | |",
         "",
         "## Candidates tested this iteration",
         "",
     ]
     for c in candidates:
         marker = "✅ accepted" if c.accepted else "❌ rejected"
+        m = c.metrics
+
+        def d(key):
+            return m[key] - baseline[key] if not np.isnan(m.get(key, float("nan"))) else float("nan")
+
         lines += [
             f"### `{c.name}` — {marker}",
             "",
@@ -453,15 +576,22 @@ def write_iteration_md(out_dir: Path, n: int,
             c.code_diff,
             "```",
             "",
-            "**Result vs baseline:**",
+            "**Per-target metrics (Δ vs baseline):**",
             "",
-            f"- HoldingTemp R²: `{c.metrics['temp_r2_mean']:+.4f}` "
-            f"(Δ = `{c.metrics['temp_r2_mean'] - baseline['temp_r2_mean']:+.4f}`)",
-            f"- HoldingTime R²: `{c.metrics['time_r2_mean']:+.4f}` "
-            f"(Δ = `{c.metrics['time_r2_mean'] - baseline['time_r2_mean']:+.4f}`)",
-            f"- Mean R²       : `{c.metrics['mean_r2']:+.4f}` "
-            f"(Δ = `{c.delta_mean_r2:+.4f}`)",
-            f"- Wall time     : `{c.secs:.1f}s`",
+            "| target | R² | Δ R² | MAE | Δ MAE | RMSE | Δ RMSE |",
+            "|---|---|---|---|---|---|---|",
+            f"| HoldingTemp "
+            f"| `{_fmt_d(m.get('temp_r2_mean'))}` | `{_fmt_d(d('temp_r2_mean'))}` "
+            f"| `{_fmt(m.get('temp_mae'), 2)}` | `{_fmt_d(d('temp_mae'), 2)}` "
+            f"| `{_fmt(m.get('temp_rmse'), 2)}` | `{_fmt_d(d('temp_rmse'), 2)}` |",
+            f"| HoldingTime "
+            f"| `{_fmt_d(m.get('time_r2_mean'))}` | `{_fmt_d(d('time_r2_mean'))}` "
+            f"| `{_fmt(m.get('time_mae'), 2)}` | `{_fmt_d(d('time_mae'), 2)}` "
+            f"| `{_fmt(m.get('time_rmse'), 2)}` | `{_fmt_d(d('time_rmse'), 2)}` |",
+            f"| **mean R²** | `{_fmt_d(m.get('mean_r2'))}` "
+            f"| `{_fmt_d(c.delta_mean_r2)}` | | | | |",
+            "",
+            f"_Wall time: `{c.secs:.1f}s`_",
             "",
         ]
     if winner is None:
@@ -472,14 +602,24 @@ def write_iteration_md(out_dir: Path, n: int,
             "",
         ]
     else:
+        plot_path = out_dir / f"predicted_vs_actual_iter{n:02d}.png"
+        try:
+            plot_iteration(plot_path, n, baseline, winner.name, winner.metrics)
+            plot_rel = plot_path.name
+        except Exception as exc:
+            plot_rel = f"(plot rendering failed: {exc})"
         lines += [
             "## Outcome",
             "",
             f"**Winner: `{winner.name}`** "
-            f"(Δ mean R² = `{winner.delta_mean_r2:+.4f}`)",
+            f"(Δ mean R² = `{_fmt_d(winner.delta_mean_r2)}`)",
             "",
             f"Folded into the baseline. New cumulative stack: "
             f"`{stack + [winner.name]}`",
+            "",
+            "### Predicted vs actual — baseline vs winner",
+            "",
+            f"![predicted vs actual]({plot_rel})",
             "",
         ]
     md.write_text("\n".join(lines))
@@ -501,35 +641,87 @@ def update_summary_md(out_dir: Path, baseline_initial: dict,
         f"- HoldingTime R²: `{baseline_initial['time_r2_mean']:+.4f} ± {baseline_initial['time_r2_std']:.4f}`",
         f"- Mean R²       : `{baseline_initial['mean_r2']:+.4f}`",
         "",
-        "## Iterations",
+        "## Per-iteration cumulative metrics",
         "",
-        "| # | Winner | Δ mean R² | Temp R² | Time R² | Mean R² | Stack |",
-        "|---|---|---|---|---|---|---|",
+        "Each row reflects the full metric set *after* the winning strategy of "
+        "that iteration is folded into the baseline.",
+        "",
+        "| # | Winner | Δ mean R² | Temp R² | Time R² | Mean R² | Temp MAE | Time MAE | Temp RMSE | Time RMSE | Stack |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
+    def _f(v, digits=4, signed=True):
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            return "—"
+        return f"{v:+.{digits}f}" if signed else f"{v:.{digits}f}"
+
+    # First row = initial baseline before any iteration.
+    lines.append(
+        f"| 0 | `(baseline)` | — "
+        f"| `{_f(baseline_initial['temp_r2_mean'])}` "
+        f"| `{_f(baseline_initial['time_r2_mean'])}` "
+        f"| `{_f(baseline_initial['mean_r2'])}` "
+        f"| `{_f(baseline_initial.get('temp_mae'), 2, False)}` "
+        f"| `{_f(baseline_initial.get('time_mae'), 2, False)}` "
+        f"| `{_f(baseline_initial.get('temp_rmse'), 2, False)}` "
+        f"| `{_f(baseline_initial.get('time_rmse'), 2, False)}` "
+        f"| `(baseline)` |"
+    )
     for it in iterations:
         winner = it.get("winner") or "(none — stop)"
         delta  = it.get("winner_delta", 0.0)
         m      = it["after"]
         stack  = ", ".join(it["stack_after"]) or "—"
         lines.append(
-            f"| {it['n']} | `{winner}` | `{delta:+.4f}` | "
-            f"`{m['temp_r2_mean']:+.4f}` | `{m['time_r2_mean']:+.4f}` | "
-            f"`{m['mean_r2']:+.4f}` | `{stack}` |"
+            f"| {it['n']} | `{winner}` | `{_f(delta)}` "
+            f"| `{_f(m['temp_r2_mean'])}` | `{_f(m['time_r2_mean'])}` "
+            f"| `{_f(m['mean_r2'])}` "
+            f"| `{_f(m.get('temp_mae'), 2, False)}` "
+            f"| `{_f(m.get('time_mae'), 2, False)}` "
+            f"| `{_f(m.get('temp_rmse'), 2, False)}` "
+            f"| `{_f(m.get('time_rmse'), 2, False)}` "
+            f"| `{stack}` |"
         )
     if iterations:
         last = iterations[-1]["after"]
         lines += [
             "",
-            "## Final state",
+            "## Final state vs initial",
             "",
-            f"- HoldingTemp R² : `{last['temp_r2_mean']:+.4f}` "
-            f"(Δ vs initial: `{last['temp_r2_mean'] - baseline_initial['temp_r2_mean']:+.4f}`)",
-            f"- HoldingTime R² : `{last['time_r2_mean']:+.4f}` "
-            f"(Δ vs initial: `{last['time_r2_mean'] - baseline_initial['time_r2_mean']:+.4f}`)",
-            f"- Mean R²        : `{last['mean_r2']:+.4f}` "
-            f"(Δ vs initial: `{last['mean_r2'] - baseline_initial['mean_r2']:+.4f}`)",
+            "| metric | initial | final | Δ |",
+            "|---|---|---|---|",
+            f"| HoldingTemp R² | `{_f(baseline_initial['temp_r2_mean'])}` "
+            f"| `{_f(last['temp_r2_mean'])}` "
+            f"| `{_f(last['temp_r2_mean'] - baseline_initial['temp_r2_mean'])}` |",
+            f"| HoldingTime R² | `{_f(baseline_initial['time_r2_mean'])}` "
+            f"| `{_f(last['time_r2_mean'])}` "
+            f"| `{_f(last['time_r2_mean'] - baseline_initial['time_r2_mean'])}` |",
+            f"| Mean R²        | `{_f(baseline_initial['mean_r2'])}` "
+            f"| `{_f(last['mean_r2'])}` "
+            f"| `{_f(last['mean_r2'] - baseline_initial['mean_r2'])}` |",
+            f"| HoldingTemp MAE | `{_f(baseline_initial.get('temp_mae'), 2, False)}` "
+            f"| `{_f(last.get('temp_mae'), 2, False)}` "
+            f"| `{_f((last.get('temp_mae') or float('nan')) - (baseline_initial.get('temp_mae') or float('nan')), 2)}` |",
+            f"| HoldingTime MAE | `{_f(baseline_initial.get('time_mae'), 2, False)}` "
+            f"| `{_f(last.get('time_mae'), 2, False)}` "
+            f"| `{_f((last.get('time_mae') or float('nan')) - (baseline_initial.get('time_mae') or float('nan')), 2)}` |",
+            f"| HoldingTemp RMSE | `{_f(baseline_initial.get('temp_rmse'), 2, False)}` "
+            f"| `{_f(last.get('temp_rmse'), 2, False)}` "
+            f"| `{_f((last.get('temp_rmse') or float('nan')) - (baseline_initial.get('temp_rmse') or float('nan')), 2)}` |",
+            f"| HoldingTime RMSE | `{_f(baseline_initial.get('time_rmse'), 2, False)}` "
+            f"| `{_f(last.get('time_rmse'), 2, False)}` "
+            f"| `{_f((last.get('time_rmse') or float('nan')) - (baseline_initial.get('time_rmse') or float('nan')), 2)}` |",
+            "",
+            "### Improvement trajectory",
+            "",
+            "![improvement trajectory](improvement_trajectory.png)",
             "",
         ]
+        # Also generate the composite plot.
+        try:
+            plot_overall_progression(out_dir / "improvement_trajectory.png",
+                                      baseline_initial, iterations)
+        except Exception as exc:
+            lines.append(f"_(plot generation failed: {exc})_")
     summary.write_text("\n".join(lines))
     return summary
 
@@ -644,7 +836,10 @@ def main():
                     "time_r2_mean": float("nan"), "time_r2_std": float("nan"),
                     "mean_r2":      float("nan"),
                     "temp_mae":     float("nan"), "time_mae": float("nan"),
+                    "temp_rmse":    float("nan"), "time_rmse": float("nan"),
                     "n_folds":      0,
+                    "_y_true_temp": np.array([]), "_y_pred_temp": np.array([]),
+                    "_y_true_time": np.array([]), "_y_pred_time": np.array([]),
                 }
                 desc = f"(crashed: {type(exc).__name__}: {exc})"
                 diff = "(no diff — strategy raised before evaluation)"
@@ -657,11 +852,17 @@ def main():
             candidate_results.append(r)
 
             history_rows.append({
-                "iteration": n, "strategy": strat,
-                "temp_r2": metrics["temp_r2_mean"], "time_r2": metrics["time_r2_mean"],
-                "mean_r2": metrics["mean_r2"],
+                "iteration":     n,
+                "strategy":      strat,
+                "temp_r2":       metrics["temp_r2_mean"],
+                "time_r2":       metrics["time_r2_mean"],
+                "mean_r2":       metrics["mean_r2"],
+                "temp_mae":      metrics.get("temp_mae"),
+                "time_mae":      metrics.get("time_mae"),
+                "temp_rmse":     metrics.get("temp_rmse"),
+                "time_rmse":     metrics.get("time_rmse"),
                 "delta_mean_r2": delta,
-                "secs": secs,
+                "secs":          secs,
             })
 
             # Persist history.csv after every candidate so a later crash
@@ -715,12 +916,17 @@ def main():
 
     # Append a final-headline row to history.
     history_rows.append({
-        "iteration": "final",
-        "strategy": "+".join(stack) or "baseline",
-        "temp_r2": final["temp_r2_mean"], "time_r2": final["time_r2_mean"],
-        "mean_r2": final["mean_r2"],
+        "iteration":     "final",
+        "strategy":      "+".join(stack) or "baseline",
+        "temp_r2":       final["temp_r2_mean"],
+        "time_r2":       final["time_r2_mean"],
+        "mean_r2":       final["mean_r2"],
+        "temp_mae":      final.get("temp_mae"),
+        "time_mae":      final.get("time_mae"),
+        "temp_rmse":     final.get("temp_rmse"),
+        "time_rmse":     final.get("time_rmse"),
         "delta_mean_r2": final["mean_r2"] - initial_baseline["mean_r2"],
-        "secs": float("nan"),
+        "secs":          float("nan"),
     })
 
     # Persist artifacts.
@@ -744,15 +950,43 @@ def main():
         "initial_temp_r2":    initial_baseline["temp_r2_mean"],
         "initial_time_r2":    initial_baseline["time_r2_mean"],
         "initial_mean_r2":    initial_baseline["mean_r2"],
+        "initial_temp_mae":   initial_baseline.get("temp_mae"),
+        "initial_time_mae":   initial_baseline.get("time_mae"),
+        "initial_temp_rmse":  initial_baseline.get("temp_rmse"),
+        "initial_time_rmse":  initial_baseline.get("time_rmse"),
         "final_temp_r2":      final["temp_r2_mean"],
         "final_time_r2":      final["time_r2_mean"],
         "final_mean_r2":      final["mean_r2"],
+        "final_temp_mae":     final.get("temp_mae"),
+        "final_time_mae":     final.get("time_mae"),
+        "final_temp_rmse":    final.get("temp_rmse"),
+        "final_time_rmse":    final.get("time_rmse"),
     })
 
+    # One last composite plot covering both the per-iteration trajectory and
+    # the final-headline rerun, written outside of update_summary_md so it's
+    # always present even if no iteration converged.
+    try:
+        plot_overall_progression(
+            run_dir / "improvement_trajectory.png",
+            initial_baseline,
+            iteration_records + [{
+                "n": "final",
+                "winner": "headline-rerun",
+                "winner_delta": 0.0,
+                "after": final,
+                "stack_after": stack,
+            }],
+        )
+    except Exception as exc:
+        print(f"  WARN: improvement-trajectory plot failed: {exc}")
+
     print(f"\nArtifacts written to: {run_dir}")
-    print(f"  - history.csv")
-    print(f"  - summary.md")
-    print(f"  - iteration_*.md")
+    print(f"  - history.csv                   (long-format with R²/MAE/RMSE per (iteration, strategy))")
+    print(f"  - summary.md                    (cumulative table + final state + trajectory plot)")
+    print(f"  - iteration_*.md                (per-iteration log + diff + per-target metrics)")
+    print(f"  - predicted_vs_actual_iter*.png (baseline vs winner pred-vs-actual per iteration)")
+    print(f"  - improvement_trajectory.png    (R²/MAE/RMSE across iterations)")
 
 
 if __name__ == "__main__":
