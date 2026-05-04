@@ -63,6 +63,7 @@ from sklearn.model_selection import (
     RepeatedKFold,
     StratifiedKFold,
     cross_val_score,
+    train_test_split,
 )
 from sklearn.multioutput import MultiOutputRegressor
 
@@ -364,6 +365,98 @@ def cv_evaluate(state: State) -> dict[str, float]:
         "_y_true_time":  np.concatenate(y_true_time),
         "_y_pred_time":  np.concatenate(y_pred_time),
     }
+
+
+def fit_predict_test(state: State, train_idx: np.ndarray,
+                      test_idx: np.ndarray) -> dict:
+    """Fit the state's model on train_idx and predict on test_idx.
+
+    Mirrors the per-fold logic in cv_evaluate() so the same per_target /
+    log_time switches apply, but uses one explicit split. Returns a metrics
+    dict with the same keys as cv_evaluate (R²/MAE/RMSE per target plus
+    raw _y_true_* / _y_pred_* arrays for plotting).
+    """
+    X_tr, X_te = state.X[train_idx], state.X[test_idx]
+    Y_tr, Y_te = state.Y[train_idx], state.Y[test_idx]
+
+    if state.per_target:
+        factory = make_estimator(state)
+        mt = factory()
+        mt.fit(X_tr, Y_tr[:, 0])
+        yp_t = mt.predict(X_te)
+
+        mh = factory()
+        if state.log_time:
+            mh = TransformedTargetRegressor(
+                regressor=mh, func=np.log1p, inverse_func=np.expm1,
+                check_inverse=False,
+            )
+        mh.fit(X_tr, Y_tr[:, 1])
+        yp_h = mh.predict(X_te)
+    else:
+        est = make_estimator(state)
+        est.fit(X_tr, Y_tr)
+        yp = est.predict(X_te)
+        if yp.ndim == 1:
+            yp = yp.reshape(-1, 1)
+        yp_t = yp[:, 0]
+        yp_h = yp[:, 1]
+
+    temp_r2  = float(r2_score(Y_te[:, 0], yp_t))
+    time_r2  = float(r2_score(Y_te[:, 1], yp_h))
+    temp_mae = float(mean_absolute_error(Y_te[:, 0], yp_t))
+    time_mae = float(mean_absolute_error(Y_te[:, 1], yp_h))
+    temp_rmse = float(np.sqrt(mean_squared_error(Y_te[:, 0], yp_t)))
+    time_rmse = float(np.sqrt(mean_squared_error(Y_te[:, 1], yp_h)))
+
+    return {
+        "temp_r2":   temp_r2,
+        "time_r2":   time_r2,
+        "mean_r2":   float(np.mean([temp_r2, time_r2])),
+        "temp_mae":  temp_mae,
+        "time_mae":  time_mae,
+        "temp_rmse": temp_rmse,
+        "time_rmse": time_rmse,
+        "n_test":    int(len(test_idx)),
+        "n_train":   int(len(train_idx)),
+        "_y_true_temp": Y_te[:, 0],
+        "_y_pred_temp": yp_t,
+        "_y_true_time": Y_te[:, 1],
+        "_y_pred_time": yp_h,
+    }
+
+
+def plot_test_predictions(out_path: Path, metrics: dict, stack_label: str) -> None:
+    """Side-by-side predicted-vs-actual scatter for the held-out test set."""
+    import matplotlib
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    for ax, label, yt_key, yp_key, r2_key, mae_key, units in [
+        (axes[0], "HoldingTemp", "_y_true_temp", "_y_pred_temp", "temp_r2", "temp_mae", "°C"),
+        (axes[1], "HoldingTime", "_y_true_time", "_y_pred_time", "time_r2", "time_mae", "min"),
+    ]:
+        yt, yp = metrics[yt_key], metrics[yp_key]
+        ax.scatter(yt, yp, alpha=0.7, s=40, edgecolor="k", linewidth=0.4)
+        lo, hi = min(yt.min(), yp.min()), max(yt.max(), yp.max())
+        ax.plot([lo, hi], [lo, hi], "r--", linewidth=1, label="y = x")
+        ax.set_xlabel(f"Actual ({units})")
+        ax.set_ylabel(f"Predicted ({units})")
+        ax.set_title(
+            f"{label}\nR² = {metrics[r2_key]:.3f}   "
+            f"MAE = {metrics[mae_key]:.2f} {units}   n = {metrics['n_test']}"
+        )
+        ax.legend(loc="upper left", fontsize=9)
+        ax.grid(alpha=0.3)
+
+    fig.suptitle(
+        f"Held-out test set — winning configuration: {stack_label or 'baseline'}",
+        fontsize=12, fontweight="bold",
+    )
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
 
 def apply_strategy(state: State, name: str) -> tuple[State, str, str]:
@@ -745,6 +838,12 @@ def main():
     parser.add_argument("--cv-splits",  type=int, default=5)
     parser.add_argument("--final-cv-repeats", type=int, default=10,
                         help="repeats for the final headline number once the loop converges")
+    parser.add_argument("--with-test-split", type=float, default=None,
+                        metavar="FRAC",
+                        help="hold out FRAC of samples (e.g. 0.15) before iteration; "
+                             "after the loop converges, retrain the winning configuration on "
+                             "the remaining samples and report test-set R²/MAE/RMSE plus a "
+                             "predicted-vs-actual scatter. Off by default.")
     args = parser.parse_args()
 
     # ── Build feature matrix from caches ────────────────────────────────────
@@ -781,13 +880,39 @@ def main():
     Y = df_c1[TARGET_COLS].values.astype(np.float64)
     print(f"  Targets: {Y.shape}")
 
+    # ── Optional held-out test split (carved BEFORE iteration) ──────────────
+    # When --with-test-split FRAC is set, we hold out FRAC of samples and run
+    # all CV-based strategy selection on the remaining (1-FRAC). After the
+    # iteration loop converges, we retrain the winning configuration on the
+    # full training portion and predict on the held-out test set — giving an
+    # honest, leakage-free test-set R²/MAE/RMSE to put alongside the CV story.
+    test_idx_in_full: np.ndarray | None = None
+    if args.with_test_split is not None:
+        frac = float(args.with_test_split)
+        if not 0 < frac < 0.5:
+            raise SystemExit(f"--with-test-split must be in (0, 0.5); got {frac}")
+        all_idx = np.arange(len(Y))
+        train_idx_full, test_idx_full = train_test_split(
+            all_idx, test_size=frac, random_state=42,
+        )
+        print(f"\nHeld-out test split: train={len(train_idx_full)}  "
+              f"test={len(test_idx_full)}  (frac={frac})")
+        # Iteration sees only the training portion. df_c1 must be sliced too
+        # because cv_evaluate uses it for alloy / temp_bin stratification.
+        X_iter        = X_full[train_idx_full]
+        Y_iter        = Y[train_idx_full]
+        df_c1_iter    = df_c1.iloc[train_idx_full].reset_index(drop=True)
+        test_idx_in_full = test_idx_full
+    else:
+        X_iter, Y_iter, df_c1_iter = X_full, Y, df_c1
+
     # ── Allocate run directory ──────────────────────────────────────────────
     store = RunStore("iterate_demo")
     run_dir, run_id = store.start()
     print(f"\nRun directory: {run_dir}")
 
     # ── Initial baseline ────────────────────────────────────────────────────
-    state = State(X=X_full, Y=Y, feature_names=[], df_c1=df_c1,
+    state = State(X=X_iter, Y=Y_iter, feature_names=[], df_c1=df_c1_iter,
                    cv_repeats=args.cv_repeats, cv_splits=args.cv_splits)
     print("\nMeasuring initial baseline (RepeatedKFold "
           f"{args.cv_splits}x{args.cv_repeats})...")
@@ -940,6 +1065,49 @@ def main():
                           "stack_after": stack,
                       }])
 
+    # ── Held-out test evaluation (only when --with-test-split is set) ───────
+    # The iteration loop never saw test_idx_in_full, so this is a clean
+    # generalisation estimate. We refit the winning configuration on the
+    # entire training portion (state.X / state.Y) and predict on the held-out
+    # rows from the original X_full / Y.
+    test_metrics: dict | None = None
+    if test_idx_in_full is not None:
+        print(f"\n=== Held-out test evaluation (n={len(test_idx_in_full)} samples) ===")
+        # Build a state whose X/Y span both train and test portions so
+        # fit_predict_test can index both halves with the right global rows.
+        # Training rows are 0..n_train-1, test rows follow at n_train..end.
+        X_combined = np.vstack([state.X, X_full[test_idx_in_full]])
+        Y_combined = np.vstack([state.Y, Y[test_idx_in_full]])
+        n_train_only = state.X.shape[0]
+        eval_state = State(
+            X=X_combined, Y=Y_combined, feature_names=list(state.feature_names),
+            df_c1=df_c1,  # not used by fit_predict_test; safe to pass full
+            log_time=state.log_time, per_target=state.per_target,
+            stratify_by=None,  # n/a for a single fit
+            cv_repeats=state.cv_repeats, cv_splits=state.cv_splits, seed=state.seed,
+        )
+        train_local = np.arange(n_train_only)
+        test_local  = np.arange(n_train_only, n_train_only + len(test_idx_in_full))
+        test_metrics = fit_predict_test(eval_state, train_local, test_local)
+        print(f"  temp_r2={test_metrics['temp_r2']:+.4f}  "
+              f"MAE={test_metrics['temp_mae']:.2f}°C  "
+              f"RMSE={test_metrics['temp_rmse']:.2f}°C")
+        print(f"  time_r2={test_metrics['time_r2']:+.4f}  "
+              f"MAE={test_metrics['time_mae']:.2f}min  "
+              f"RMSE={test_metrics['time_rmse']:.2f}min")
+        print(f"  mean_r2={test_metrics['mean_r2']:+.4f}")
+
+        # Save predictions for downstream analysis (residuals, calibration, etc).
+        pd.DataFrame({
+            "actual_temp":    test_metrics["_y_true_temp"],
+            "predicted_temp": test_metrics["_y_pred_temp"],
+            "actual_time":    test_metrics["_y_true_time"],
+            "predicted_time": test_metrics["_y_pred_time"],
+        }).to_csv(run_dir / "test_predictions.csv", index=False)
+        plot_test_predictions(run_dir / "test_predicted_vs_actual.png",
+                              test_metrics, "+".join(stack) or "baseline")
+        print(f"  Wrote test_predictions.csv + test_predicted_vs_actual.png")
+
     store.write_manifest({
         "csv":                args.csv,
         "backbone":           args.backbone,
@@ -961,6 +1129,15 @@ def main():
         "final_time_mae":     final.get("time_mae"),
         "final_temp_rmse":    final.get("temp_rmse"),
         "final_time_rmse":    final.get("time_rmse"),
+        "test_split_frac":    args.with_test_split,
+        "test_n":             None if test_metrics is None else test_metrics["n_test"],
+        "test_temp_r2":       None if test_metrics is None else test_metrics["temp_r2"],
+        "test_time_r2":       None if test_metrics is None else test_metrics["time_r2"],
+        "test_mean_r2":       None if test_metrics is None else test_metrics["mean_r2"],
+        "test_temp_mae":      None if test_metrics is None else test_metrics["temp_mae"],
+        "test_time_mae":      None if test_metrics is None else test_metrics["time_mae"],
+        "test_temp_rmse":     None if test_metrics is None else test_metrics["temp_rmse"],
+        "test_time_rmse":     None if test_metrics is None else test_metrics["time_rmse"],
     })
 
     # One last composite plot covering both the per-iteration trajectory and
@@ -987,6 +1164,9 @@ def main():
     print(f"  - iteration_*.md                (per-iteration log + diff + per-target metrics)")
     print(f"  - predicted_vs_actual_iter*.png (baseline vs winner pred-vs-actual per iteration)")
     print(f"  - improvement_trajectory.png    (R²/MAE/RMSE across iterations)")
+    if test_metrics is not None:
+        print(f"  - test_predictions.csv          (per-sample held-out predictions)")
+        print(f"  - test_predicted_vs_actual.png  (held-out test set scatter, both targets)")
 
 
 if __name__ == "__main__":
