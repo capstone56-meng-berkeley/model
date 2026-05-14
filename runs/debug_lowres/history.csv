@@ -1,0 +1,2 @@
+backbone,n_samples,n_features,best_model,c1_test_r2_avg,c1_holdingtemp_r2,c1_holdingtime_r2,c1_cv_r2_mean,c1_cv_r2_std,c1c2_test_r2_avg,tags,run_id,saved_at
+dinov2_vitb14,444,919,RF,0.5341745555989674,0.8100526410716999,0.3456365160589765,0.8265864189620671,0.03970753621858085,,"bayes_best=KNN,r2=0.8266,delta=+0.0000; backbone=dinov2_vitb14; morph=True",20260504_100001_f151,2026-05-04 10:03:22
