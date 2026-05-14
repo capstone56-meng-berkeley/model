@@ -1,0 +1,62 @@
+{
+  "scope": "dp_steel",
+  "n_trials": 100,
+  "feature_matrix_rows": 493,
+  "feature_matrix_cols": 812,
+  "top_n": 3,
+  "cv_search": "RepeatedKFold(5,5)",
+  "cv_eval": "RepeatedKFold(5,10)",
+  "best_model": "KNN",
+  "models": {
+    "XGB": {
+      "best_cv_r2": 0.6435636119835322,
+      "tuned_cv_r2": 0.6412546068125526,
+      "tuned_std": 0.13209144743463347,
+      "delta": 0.03870989255671842,
+      "params": {
+        "n_estimators": 361,
+        "learning_rate": 0.026425889648127254,
+        "max_depth": 4,
+        "subsample": 0.9366164137716618,
+        "colsample_bytree": 0.5175150753005386,
+        "min_child_weight": 1,
+        "reg_alpha": 3.106909017036473,
+        "reg_lambda": 0.7854786803364849,
+        "gamma": 0.0420474675569703
+      }
+    },
+    "KNN": {
+      "best_cv_r2": 0.6504170589838281,
+      "tuned_cv_r2": 0.6669810846389674,
+      "tuned_std": 0.1339501463968313,
+      "delta": 0.13055222775781017,
+      "params": {
+        "n_neighbors": 3,
+        "weights": "distance",
+        "p": 2
+      }
+    },
+    "GBR": {
+      "best_cv_r2": 0.5582509389805658,
+      "tuned_cv_r2": 0.5500367140963259,
+      "tuned_std": 0.12420768703843983,
+      "delta": 0.06964779829914086,
+      "params": {
+        "n_estimators": 403,
+        "learning_rate": 0.03498995934771926,
+        "max_depth": 7,
+        "subsample": 0.8451737123346558,
+        "min_samples_leaf": 2,
+        "max_features": "sqrt"
+      }
+    }
+  },
+  "trials_csvs": {
+    "XGB": "optuna_trials_XGB.csv",
+    "KNN": "optuna_trials_KNN.csv",
+    "GBR": "optuna_trials_GBR.csv"
+  },
+  "run_id": "20260502_071403_7a14",
+  "name": "bayes",
+  "saved_at": "2026-05-02 12:59:05"
+}

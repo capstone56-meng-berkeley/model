@@ -22,6 +22,7 @@ import math
 import os
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from .morphology_config import MorphologyConfig
 
@@ -131,12 +132,25 @@ class MorphologicalExtractor:
             return data["X"].astype(np.float64), list(data["filenames"])
 
         logger.info("Extracting morphological features from %d images...", len(image_paths))
-        rows = []
-        for i, path in enumerate(image_paths):
-            feat = self.extract_single(path)
-            rows.append(feat)
-            if (i + 1) % 10 == 0 or (i + 1) == len(image_paths):
-                logger.info("  %d / %d", i + 1, len(image_paths))
+
+        # Morphology is CPU-bound NumPy/scikit-image work — use processes, not
+        # threads, to dodge the GIL. Cap at 8 to leave the 2 E-cores on Apple
+        # Silicon free for the OS / GPU command queue.
+        n_workers = max(1, min(8, (os.cpu_count() or 4) - 2))
+        if n_workers > 1 and len(image_paths) > 1:
+            from concurrent.futures import ProcessPoolExecutor
+            with ProcessPoolExecutor(max_workers=n_workers) as ex:
+                rows = list(tqdm(
+                    ex.map(self.extract_single, image_paths, chunksize=4),
+                    total=len(image_paths),
+                    desc=f"Morphological features ({n_workers} workers)",
+                    unit="img",
+                ))
+        else:
+            rows = [
+                self.extract_single(p)
+                for p in tqdm(image_paths, desc="Morphological features", unit="img")
+            ]
 
         X = np.vstack(rows)
 

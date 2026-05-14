@@ -1,51 +1,55 @@
 {
   "dp_steel": {
-    "saved_at": "2026-04-14 12:12:44",
-    "git_commit": "65da734",
+    "saved_at": "2026-05-02 12:59:05",
+    "git_commit": "d0ed798",
     "n_trials": 100,
     "cv_protocol": "RepeatedKFold(n_splits=5, n_repeats=5) search / (n_repeats=10) eval",
     "feature_matrix_shape": [
-      54,
-      17
+      493,
+      812
     ],
-    "best_model": "GBR",
+    "best_model": "KNN",
     "models": {
-      "ABR": {
-        "best_cv_r2": 0.8769650517046667,
-        "tuned_cv_r2": 0.8661333516966201,
-        "tuned_std": 0.2039329286417189,
-        "delta": 0.06565147900722079,
+      "XGB": {
+        "best_cv_r2": 0.6435636119835322,
+        "tuned_cv_r2": 0.6412546068125526,
+        "tuned_std": 0.13209144743463347,
+        "delta": 0.03870989255671842,
         "params": {
-          "max_depth": 5,
-          "n_estimators": 387,
-          "learning_rate": 0.2286366118942622
+          "n_estimators": 361,
+          "learning_rate": 0.026425889648127254,
+          "max_depth": 4,
+          "subsample": 0.9366164137716618,
+          "colsample_bytree": 0.5175150753005386,
+          "min_child_weight": 1,
+          "reg_alpha": 3.106909017036473,
+          "reg_lambda": 0.7854786803364849,
+          "gamma": 0.0420474675569703
+        }
+      },
+      "KNN": {
+        "best_cv_r2": 0.6504170589838281,
+        "tuned_cv_r2": 0.6669810846389674,
+        "tuned_std": 0.1339501463968313,
+        "delta": 0.13055222775781017,
+        "params": {
+          "n_neighbors": 3,
+          "weights": "distance",
+          "p": 2
         }
       },
       "GBR": {
-        "best_cv_r2": 0.92481129476035,
-        "tuned_cv_r2": 0.9055770153214447,
-        "tuned_std": 0.15490685282450417,
-        "delta": 0.11716170717253982,
+        "best_cv_r2": 0.5582509389805658,
+        "tuned_cv_r2": 0.5500367140963259,
+        "tuned_std": 0.12420768703843983,
+        "delta": 0.06964779829914086,
         "params": {
-          "n_estimators": 469,
-          "learning_rate": 0.05126768805453102,
-          "max_depth": 2,
-          "subsample": 0.5173680426120633,
+          "n_estimators": 403,
+          "learning_rate": 0.03498995934771926,
+          "max_depth": 7,
+          "subsample": 0.8451737123346558,
           "min_samples_leaf": 2,
-          "max_features": null
-        }
-      },
-      "ExtraTrees": {
-        "best_cv_r2": 0.8333444737787056,
-        "tuned_cv_r2": 0.8100697179617344,
-        "tuned_std": 0.20345978477329485,
-        "delta": 0.2287340123281778,
-        "params": {
-          "n_estimators": 128,
-          "max_depth": 17,
-          "min_samples_leaf": 1,
-          "max_features": 0.5,
-          "bootstrap": false
+          "max_features": "sqrt"
         }
       }
     }

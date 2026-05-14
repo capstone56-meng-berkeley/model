@@ -1,0 +1,56 @@
+{
+  "scope": "dp_steel",
+  "n_trials": 100,
+  "feature_matrix_rows": 54,
+  "feature_matrix_cols": 818,
+  "top_n": 3,
+  "cv_search": "RepeatedKFold(5,5)",
+  "cv_eval": "RepeatedKFold(5,10)",
+  "best_model": "GBR",
+  "models": {
+    "ABR": {
+      "best_cv_r2": 0.8114673119046235,
+      "tuned_cv_r2": 0.7569849859205785,
+      "tuned_std": 0.3165406339421164,
+      "delta": -0.03754056345175705,
+      "params": {
+        "max_depth": 8,
+        "n_estimators": 349,
+        "learning_rate": 0.3980345952619943
+      }
+    },
+    "GBR": {
+      "best_cv_r2": 0.8134597481748115,
+      "tuned_cv_r2": 0.7756260000066031,
+      "tuned_std": 0.2606836792468984,
+      "delta": 0.016616847620312125,
+      "params": {
+        "n_estimators": 435,
+        "learning_rate": 0.0354713798598805,
+        "max_depth": 6,
+        "subsample": 0.8375541052606149,
+        "min_samples_leaf": 1,
+        "max_features": null
+      }
+    },
+    "KNN": {
+      "best_cv_r2": 0.7073174361431712,
+      "tuned_cv_r2": 0.6092398748266478,
+      "tuned_std": 0.5203495148003423,
+      "delta": 0.28424757436929254,
+      "params": {
+        "n_neighbors": 2,
+        "weights": "distance",
+        "p": 2
+      }
+    }
+  },
+  "trials_csvs": {
+    "ABR": "optuna_trials_ABR.csv",
+    "GBR": "optuna_trials_GBR.csv",
+    "KNN": "optuna_trials_KNN.csv"
+  },
+  "run_id": "20260426_124750_5d96",
+  "name": "bayes",
+  "saved_at": "2026-04-26 13:02:59"
+}
